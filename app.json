@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Agro Cultivo",
+    "slug": "AppCultivo",
+    "scheme": "agrocultivo",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.agronegocio.appcultivo",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "A localização é usada para mostrar o clima e marcar o local do cultivo.",
+        "NSCameraUsageDescription": "A câmera é usada para fotografar o cultivo.",
+        "NSPhotoLibraryUsageDescription": "A galeria é usada para anexar fotos ao cultivo."
+      }
+    },
+    "android": {
+      "package": "com.agronegocio.appcultivo",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sharing"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "dccaa6c1-4fc4-4366-9ea2-272a54250d24"
+      }
+    }
+  }
+}
