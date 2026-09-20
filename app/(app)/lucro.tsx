@@ -1,32 +1,53 @@
-import { BarraHorizontal, Cartao, Carregando, Mensagem, Vazio } from '@/components/ui';
+import { BarraHorizontal, Cartao, Carregando, Chips, Mensagem, Vazio } from '@/components/ui';
 import { HA_POR_ALQUEIRE, listCultivosResumo, type CultivoResumo } from '@/lib/cultivos';
 import { moeda } from '@/lib/formatar';
 import { despesasPorCategoria } from '@/lib/movimentacoes';
 import { cores } from '@/lib/tema';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-// Resumo financeiro da fazenda: cultivos em andamento. Era recurso Pro no app
-// antigo; agora é para todos.
+const FILTROS = ['Todos', 'Em andamento', 'Finalizados'] as const;
+type Filtro = (typeof FILTROS)[number];
+
+// Resumo financeiro da fazenda. Era recurso Pro no app antigo; agora é para
+// todos. Mostra todos os cultivos por padrão — só a safra em andamento não
+// fecha a conta do ano, que é o que interessa ao olhar o lucro.
 export default function LucroScreen() {
-  const [ativos, setAtivos] = useState<CultivoResumo[] | null>(null);
+  const [todos, setTodos] = useState<CultivoResumo[] | null>(null);
   const [categorias, setCategorias] = useState<{ categoria: string; total: number }[]>([]);
+  const [filtro, setFiltro] = useState<Filtro>('Todos');
   const [erro, setErro] = useState<string | null>(null);
 
   useRecarregarAoFocar(() => {
     listCultivosResumo()
-      .then(async (l) => {
-        const a = l.filter((c) => !c.finalizado);
-        setAtivos(a);
-        setCategorias(await despesasPorCategoria(a.map((c) => c.id)));
-      })
+      .then(setTodos)
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar.'));
   });
 
-  if (ativos === null && !erro) return <Carregando />;
+  const lista = useMemo(
+    () =>
+      (todos ?? []).filter((c) =>
+        filtro === 'Em andamento' ? !c.finalizado : filtro === 'Finalizados' ? c.finalizado : true,
+      ),
+    [todos, filtro],
+  );
 
-  const lista = ativos ?? [];
+  // As despesas por categoria vêm de outra consulta, então acompanham o filtro.
+  const ids = lista.map((c) => c.id).join(',');
+  useEffect(() => {
+    let atual = true;
+    despesasPorCategoria(ids ? ids.split(',').map(Number) : [])
+      .then((c) => atual && setCategorias(c))
+      .catch(() => atual && setCategorias([]));
+    return () => {
+      atual = false;
+    };
+  }, [ids]);
+
+  if (todos === null && !erro) return <Carregando />;
+
+  const emAndamento = (todos ?? []).filter((c) => !c.finalizado).length;
   const despesas = lista.reduce((s, c) => s + c.total_despesas, 0);
   const receitas = lista.reduce((s, c) => s + c.total_receitas, 0);
   const lucro = receitas - despesas;
@@ -38,11 +59,16 @@ export default function LucroScreen() {
       <Mensagem texto={erro} />
       <Text style={styles.titulo}>🚜 Resumo geral da fazenda</Text>
       <Text style={styles.sub}>
-        {lista.length} cultivo{lista.length !== 1 ? 's' : ''} em andamento
+        {(todos ?? []).length} cultivo{(todos ?? []).length !== 1 ? 's' : ''} no total ·{' '}
+        {emAndamento} em andamento · {(todos ?? []).length - emAndamento} finalizado
+        {(todos ?? []).length - emAndamento !== 1 ? 's' : ''}
       </Text>
+      <View style={{ marginBottom: 14 }}>
+        <Chips opcoes={FILTROS} valor={filtro} onChange={setFiltro} />
+      </View>
 
       {lista.length === 0 ? (
-        <Vazio icone="🌾" titulo="Nenhum cultivo em andamento" />
+        <Vazio icone="🌾" titulo={`Nenhum cultivo ${filtro === 'Todos' ? 'cadastrado' : filtro.toLowerCase()}`} />
       ) : (
         <>
           <View style={styles.linha}>
@@ -93,6 +119,7 @@ export default function LucroScreen() {
                   return (
                     <View key={c.id} style={[styles.tr, idx % 2 === 1 && { backgroundColor: '#f7faf6' }]}>
                       <Text style={[styles.cel, { width: 150 }]} numberOfLines={2}>
+                        {c.finalizado ? '✅ ' : ''}
                         {c.nome_cultura} {c.ano}
                       </Text>
                       <Text style={[styles.cel, { width: 80 }]}>{ha.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</Text>
