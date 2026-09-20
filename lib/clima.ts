@@ -60,15 +60,35 @@ export async function posicaoAtual(): Promise<{ latitude: number; longitude: num
   return pos ? { latitude: pos.coords.latitude, longitude: pos.coords.longitude } : null;
 }
 
-// reverseGeocode só existe no Android/iOS; na web a cidade fica em branco.
+// Coordenada -> "Cidade - UF".
+//
+// O reverseGeocodeAsync do Expo só existe no Android/iOS. Na web (e quando ele
+// não acha nada, o que acontece em aparelho sem os serviços do Google) a
+// resposta vem do BigDataCloud: gratuito, sem chave e liberado para chamada
+// direta do navegador.
 export async function nomeDoLugar(latitude: number, longitude: number): Promise<string | null> {
-  if (Platform.OS === 'web') return null;
+  if (Platform.OS !== 'web') {
+    try {
+      const [end] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      const cidade = end?.city || end?.subregion || end?.district;
+      if (cidade) return end.region ? `${cidade} - ${end.region}` : cidade;
+    } catch {
+      // cai para o serviço na web abaixo
+    }
+  }
+
   try {
-    const [end] = await Location.reverseGeocodeAsync({ latitude, longitude });
-    if (!end) return null;
-    const cidade = end.city || end.subregion || end.district;
+    const resp = await fetch(
+      'https://api.bigdatacloud.net/data/reverse-geocode-client' +
+        `?latitude=${latitude}&longitude=${longitude}&localityLanguage=pt`,
+    );
+    if (!resp.ok) return null;
+    const j = await resp.json();
+    const cidade: string | undefined = j.city || j.locality;
     if (!cidade) return null;
-    return end.region ? `${cidade} - ${end.region}` : cidade;
+    // principalSubdivisionCode vem como "BR-PR"; queremos só o "PR".
+    const uf = String(j.principalSubdivisionCode ?? '').split('-')[1] || j.principalSubdivision;
+    return uf ? `${cidade} - ${uf}` : cidade;
   } catch {
     return null;
   }
