@@ -28,6 +28,8 @@ Outros comandos: `npm run typecheck`, `npm run lint`, `npm run build:web` (gera 
 
 Projeto: `efpghgwlvmrnnsmwhohy`.
 
+> **Banco criado antes de setembro/2026** (chaves `bigint`): rode antes `supabase/migracao-uuid.sql`, uma vez, e depois o `schema.sql`. A migração converte as chaves em `uuid` e acrescenta `updated_at` e `deleted_at`, mantendo os dados.
+
 1. **SQL Editor** → cole e rode `supabase/schema.sql`. Ele cria as tabelas, a RLS, a view de totais, a função que grava a movimentação com os itens e os buckets `fotos-cultivo` (público) e `anexos` (privado). Pode ser rodado de novo sem erro.
 2. **Project Settings → API** → copie a *Project URL* e a *anon public key* para o `.env`.
 3. **Authentication → URL Configuration** → em *Site URL* e *Redirect URLs*, coloque o endereço do app publicado (ex.: `https://agrocultivo.vercel.app` e `https://agrocultivo.vercel.app/nova-senha`). É para lá que o link de "Esqueci minha senha" volta.
@@ -59,6 +61,18 @@ Pode rodar mais de uma vez: quem já tem cultivos no projeto novo é pulado.
 - dados de quem nunca gerou backup. No 1.x o envio automático era só para usuários Pro.
 
 As chaves `service_role` ignoram a RLS: use só no seu computador, nunca no app nem no git.
+
+## Preparado para funcionar offline no celular
+
+O plano é a web continuar só online e o aplicativo do celular guardar os dados no próprio aparelho, sincronizando quando houver rede — como o app antigo fazia, mas com sincronização nos dois sentidos. A parte do banco já está pronta:
+
+- **`id` é `uuid` gerado por quem cria a linha**, não uma sequência do Postgres. Sem isso o aparelho não consegue criar uma despesa e amarrar os itens nela antes de ter rede.
+- **`updated_at` em toda tabela**, mexido por gatilho: é assim que o aparelho pede "o que mudou desde a última vez" em vez de baixar tudo.
+- **Exclusão marcada em `deleted_at`**, nunca apagada: linha que some do Postgres é invisível para um aparelho offline e voltaria na próxima subida.
+
+Falta a camada local no celular (SQLite + fila de envio), seguindo o mesmo padrão de arquivo por plataforma que o mapa já usa (`MapaLeaflet.tsx` / `MapaLeaflet.web.tsx`).
+
+Clima, chuva por satélite, municípios e mapa dependem de rede em qualquer cenário.
 
 ## Publicando na web (Vercel)
 

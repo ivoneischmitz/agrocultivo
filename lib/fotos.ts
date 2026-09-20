@@ -7,25 +7,26 @@ import { supabase } from '@/lib/supabase';
 const BUCKET = 'fotos-cultivo';
 
 export type Foto = {
-  id: number;
-  cultivo_id: number;
+  id: string;
+  cultivo_id: string;
   storage_path: string;
   url: string;
   comentario: string | null;
   data: string;
 };
 
-export async function listFotos(cultivoId: number): Promise<Foto[]> {
+export async function listFotos(cultivoId: string): Promise<Foto[]> {
   const { data, error } = await supabase
     .from('fotos_cultivo')
     .select('*')
     .eq('cultivo_id', cultivoId)
+    .is('deleted_at', null)
     .order('data', { ascending: false });
   if (error) throw error;
   return data ?? [];
 }
 
-export async function enviarFoto(cultivoId: number, uri: string, mimeType?: string | null): Promise<void> {
+export async function enviarFoto(cultivoId: string, uri: string, mimeType?: string | null): Promise<void> {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error('Sessão expirada. Entre novamente.');
 
@@ -52,7 +53,10 @@ export async function enviarFoto(cultivoId: number, uri: string, mimeType?: stri
 }
 
 export async function deleteFoto(foto: Foto): Promise<void> {
-  const { error } = await supabase.from('fotos_cultivo').delete().eq('id', foto.id);
+  const { error } = await supabase
+    .from('fotos_cultivo')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', foto.id);
   if (error) throw error;
   await supabase.storage.from(BUCKET).remove([foto.storage_path]);
 }

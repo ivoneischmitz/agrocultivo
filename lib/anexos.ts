@@ -14,7 +14,7 @@ export type AnexoPendente = {
   tipo_arquivo: string | null;
 };
 
-export async function enviarAnexo(movimentacaoId: number, anexo: AnexoPendente): Promise<void> {
+export async function enviarAnexo(movimentacaoId: string, anexo: AnexoPendente): Promise<void> {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error('Sessão expirada. Entre novamente.');
 
@@ -38,7 +38,10 @@ export async function enviarAnexo(movimentacaoId: number, anexo: AnexoPendente):
 }
 
 export async function removerAnexo(anexo: Anexo): Promise<void> {
-  const { error } = await supabase.from('movimentacao_anexos').delete().eq('id', anexo.id);
+  const { error } = await supabase
+    .from('movimentacao_anexos')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', anexo.id);
   if (error) throw error;
   await supabase.storage.from('anexos').remove([anexo.storage_path]);
 }

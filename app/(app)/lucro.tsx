@@ -34,10 +34,12 @@ export default function LucroScreen() {
   );
 
   // As despesas por categoria vêm de outra consulta, então acompanham o filtro.
+  // A chave é texto para o efeito não disparar a cada render por causa da
+  // identidade do array (os ids são uuid, que não têm vírgula).
   const ids = lista.map((c) => c.id).join(',');
   useEffect(() => {
     let atual = true;
-    despesasPorCategoria(ids ? ids.split(',').map(Number) : [])
+    despesasPorCategoria(ids ? ids.split(',') : [])
       .then((c) => atual && setCategorias(c))
       .catch(() => atual && setCategorias([]));
     return () => {

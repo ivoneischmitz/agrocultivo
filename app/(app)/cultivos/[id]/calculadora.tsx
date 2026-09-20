@@ -17,7 +17,7 @@ export default function CalculadoraScreen() {
   return <Calculadora key={cultivo.id} cultivoId={cultivoId} cultura={cultivo.nome_cultura} areaInicial={cultivo.area_hectares} />;
 }
 
-function Calculadora({ cultivoId, cultura, areaInicial }: { cultivoId: number; cultura: string; areaInicial: number }) {
+function Calculadora({ cultivoId, cultura, areaInicial }: { cultivoId: string; cultura: string; areaInicial: number }) {
   const [area, setArea] = useState(paraCampo(areaInicial));
   const [dose, setDose] = useState('');
   const [espacamento, setEspacamento] = useState('0,45');

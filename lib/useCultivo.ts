@@ -7,12 +7,12 @@ import { useState } from 'react';
 // (editou e voltou, ou mudou em outro aparelho).
 export function useCultivo() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const cultivoId = Number(id);
+  const cultivoId = id ?? '';
   const [cultivo, setCultivo] = useState<Cultivo | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   useRecarregarAoFocar(() => {
-    if (!Number.isFinite(cultivoId)) {
+    if (!cultivoId) {
       setErro('Cultivo inválido.');
       return;
     }

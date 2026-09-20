@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
 export type Cultivo = {
-  id: number;
+  id: string;
   nome_cultura: string;
   ano: string;
   localidade: string;
@@ -67,8 +67,13 @@ export async function listCultivosResumo(): Promise<CultivoResumo[]> {
   }));
 }
 
-export async function getCultivo(id: number): Promise<Cultivo> {
-  const { data, error } = await supabase.from('cultivos').select('*').eq('id', id).single();
+export async function getCultivo(id: string): Promise<Cultivo> {
+  const { data, error } = await supabase
+    .from('cultivos')
+    .select('*')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single();
   if (error) throw error;
   return normalizar(data as Cultivo);
 }
@@ -79,16 +84,21 @@ export async function createCultivo(input: CultivoInput): Promise<Cultivo> {
   return normalizar(data as Cultivo);
 }
 
-export async function updateCultivo(id: number, input: CultivoInput): Promise<Cultivo> {
+export async function updateCultivo(id: string, input: CultivoInput): Promise<Cultivo> {
   const { data, error } = await supabase.from('cultivos').update(input).eq('id', id).select().single();
   if (error) throw error;
   return normalizar(data as Cultivo);
 }
 
-// A cascata no banco leva movimentações, itens, chuvas e fotos junto. Os
-// arquivos no Storage ficam: apagar é trabalho de fotos.ts/anexos.
-export async function deleteCultivo(id: number): Promise<void> {
-  const { error } = await supabase.from('cultivos').delete().eq('id', id);
+// Exclusão é marcada em deleted_at, não apagada: linha que some do Postgres é
+// invisível para um aparelho offline e voltaria na próxima subida (ver
+// schema.sql). Um gatilho marca movimentações, itens, chuvas e fotos junto.
+// Os arquivos no Storage ficam onde estão.
+export async function deleteCultivo(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('cultivos')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id);
   if (error) throw error;
 }
 

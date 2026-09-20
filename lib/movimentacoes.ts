@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 export type TipoMovimentacao = 'DESPESA' | 'RECEITA';
 
 export type MovimentacaoItem = {
-  id: number;
+  id: string;
   descricao: string;
   unidade: string;
   quantidade: number;
@@ -11,15 +11,15 @@ export type MovimentacaoItem = {
 };
 
 export type Anexo = {
-  id: number;
+  id: string;
   storage_path: string;
   nome_arquivo: string;
   tipo_arquivo: string | null;
 };
 
 export type Movimentacao = {
-  id: number;
-  cultivo_id: number;
+  id: string;
+  cultivo_id: string;
   tipo: TipoMovimentacao;
   descricao: string;
   data: string;
@@ -30,6 +30,8 @@ export type Movimentacao = {
 };
 
 export type ItemInput = {
+  // Quem cria gera o id: no celular o item precisa existir antes de haver rede.
+  id?: string;
   descricao: string;
   unidade: string;
   quantidade: number;
@@ -37,7 +39,7 @@ export type ItemInput = {
 };
 
 export type MovimentacaoInput = {
-  cultivo_id: number;
+  cultivo_id: string;
   tipo: TipoMovimentacao;
   descricao: string;
   data: string; // ISO
@@ -90,7 +92,7 @@ type Linha = Omit<Movimentacao, 'itens' | 'anexos' | 'total'> & {
 function montar(m: Linha): Movimentacao {
   const itens = (m.movimentacao_itens ?? [])
     .map((i) => ({ ...i, quantidade: Number(i.quantidade) || 0, valor: Number(i.valor) || 0 }))
-    .sort((a, b) => a.id - b.id);
+    .sort((a, b) => a.id.localeCompare(b.id));
   return {
     id: m.id,
     cultivo_id: m.cultivo_id,
@@ -109,24 +111,33 @@ const SELECT = 'id, cultivo_id, tipo, descricao, data, categoria, movimentacao_i
 // Itens e anexos vêm na mesma consulta (embed do PostgREST) — o app antigo
 // fazia três consultas por movimentação.
 export async function listMovimentacoes(
-  cultivoId: number,
+  cultivoId: string,
   tipo?: TipoMovimentacao,
 ): Promise<Movimentacao[]> {
-  let q = supabase.from('movimentacoes').select(SELECT).eq('cultivo_id', cultivoId);
+  let q = supabase
+    .from('movimentacoes')
+    .select(SELECT)
+    .eq('cultivo_id', cultivoId)
+    .is('deleted_at', null);
   if (tipo) q = q.eq('tipo', tipo);
   const { data, error } = await q.order('data', { ascending: false }).order('id', { ascending: false });
   if (error) throw error;
   return ((data ?? []) as unknown as Linha[]).map(montar);
 }
 
-export async function getMovimentacao(id: number): Promise<Movimentacao> {
-  const { data, error } = await supabase.from('movimentacoes').select(SELECT).eq('id', id).single();
+export async function getMovimentacao(id: string): Promise<Movimentacao> {
+  const { data, error } = await supabase
+    .from('movimentacoes')
+    .select(SELECT)
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single();
   if (error) throw error;
   return montar(data as unknown as Linha);
 }
 
 // Cabeçalho e itens numa transação só (função salvar_movimentacao no banco).
-export async function salvarMovimentacao(id: number | null, input: MovimentacaoInput): Promise<number> {
+export async function salvarMovimentacao(id: string | null, input: MovimentacaoInput): Promise<string> {
   const { data, error } = await supabase.rpc('salvar_movimentacao', {
     p_id: id,
     p_cultivo_id: input.cultivo_id,
@@ -137,11 +148,14 @@ export async function salvarMovimentacao(id: number | null, input: MovimentacaoI
     p_itens: input.itens,
   });
   if (error) throw error;
-  return data as number;
+  return data as string;
 }
 
 export async function deleteMovimentacao(mov: Movimentacao): Promise<void> {
-  const { error } = await supabase.from('movimentacoes').delete().eq('id', mov.id);
+  const { error } = await supabase
+    .from('movimentacoes')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', mov.id);
   if (error) throw error;
   if (mov.anexos.length > 0) {
     // Melhor esforço: se o arquivo não sair, sobra só lixo no bucket privado.
@@ -150,13 +164,14 @@ export async function deleteMovimentacao(mov: Movimentacao): Promise<void> {
 }
 
 // Despesas agrupadas por categoria de vários cultivos (painel de lucro).
-export async function despesasPorCategoria(cultivoIds: number[]) {
+export async function despesasPorCategoria(cultivoIds: string[]) {
   if (cultivoIds.length === 0) return [];
   const { data, error } = await supabase
     .from('movimentacoes')
     .select('categoria, movimentacao_itens(quantidade, valor)')
     .in('cultivo_id', cultivoIds)
-    .eq('tipo', 'DESPESA');
+    .eq('tipo', 'DESPESA')
+    .is('deleted_at', null);
   if (error) throw error;
 
   const mapa = new Map<string, number>();

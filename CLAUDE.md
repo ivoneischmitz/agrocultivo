@@ -30,6 +30,8 @@ No test runner. Port 8081 is often taken by another Expo project on this machine
 
 **Access model is per-user, unlike Força de Vendas.** Every table has `user_id default auth.uid()` and a single RLS policy `user_id = auth.uid()`. Signup is open (anyone can create an account; they only ever see their own rows). Storage policies restrict both buckets to the `{auth.uid()}/…` folder.
 
+**Offline-ready schema decisions**: PKs are `uuid` (client-generated, not a Postgres sequence), every table carries `updated_at` (set by trigger, never by the app) and deletes are soft (`deleted_at`, propagated to children by trigger). This exists so the native app can later own a local SQLite copy and sync deltas; keep new tables to the same three rules. Lib functions filter `deleted_at is null` on reads and `update({ deleted_at })` on delete. `supabase/migracao-uuid.sql` is the one-off conversion for the database that predates this.
+
 **Schema (`supabase/schema.sql`)** — `perfis` (1 row per user), `cultivos`, `movimentacoes` (header: tipo DESPESA|RECEITA, descricao, data, categoria), `movimentacao_itens` (the money: `quantidade × valor`), `movimentacao_anexos` (storage path in private bucket `anexos`, opened via signed URL), `pluviometria`, `fotos_cultivo` (public bucket `fotos-cultivo`). `cultivos.area_hectares` was `quantidade_alqueire` in 1.x but always held hectares; 1 alqueire = 2.42 ha (`HA_POR_ALQUEIRE`).
 - View `cultivos_resumo` (`security_invoker`) returns each cultivo with `total_despesas/total_receitas/total_chuva` — use it for lists instead of per-card queries.
 - RPC `salvar_movimentacao(...)` writes header + replaces all itens in one transaction (security invoker). Anexos are uploaded *after* it returns, so an upload failure never loses the lançamento.

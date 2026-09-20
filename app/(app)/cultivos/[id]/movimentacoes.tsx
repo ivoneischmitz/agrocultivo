@@ -58,7 +58,7 @@ export default function MovimentacoesScreen() {
     }
   }
 
-  const formulario = (movId?: number) =>
+  const formulario = (movId?: string) =>
     router.push(`/cultivos/${cultivoId}/movimentacao?tipo=${tipo}${movId ? `&mov=${movId}` : ''}` as Href);
 
   const total = (lista ?? []).reduce((s, m) => s + m.total, 0);

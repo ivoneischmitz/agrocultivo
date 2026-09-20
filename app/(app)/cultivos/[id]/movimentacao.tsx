@@ -40,7 +40,7 @@ const novoItem = (p: Partial<ItemForm> = {}): ItemForm => ({
 //   desc/qtd/cat para vir pré-preenchido (Calculadora de sementes).
 export default function MovimentacaoScreen() {
   const params = useLocalSearchParams<{ tipo?: string; mov?: string; desc?: string; qtd?: string; cat?: string }>();
-  const movId = params.mov ? Number(params.mov) : null;
+  const movId = params.mov || null;
   const { cultivoId, cultivo } = useCultivo();
   const [existente, setExistente] = useState<Movimentacao | null>(null);
   const [carregando, setCarregando] = useState(movId != null);
@@ -84,7 +84,7 @@ function Formulario({
   existente,
   pre,
 }: {
-  cultivoId: number;
+  cultivoId: string;
   cultivoTitulo: string;
   tipo: TipoMovimentacao;
   existente: Movimentacao | null;
