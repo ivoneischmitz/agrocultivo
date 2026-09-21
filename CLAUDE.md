@@ -37,6 +37,8 @@ No test runner. Port 8081 is often taken by another Expo project on this machine
 - RPC `salvar_movimentacao(...)` writes header + replaces all itens in one transaction (security invoker). Anexos are uploaded *after* it returns, so an upload failure never loses the lançamento.
 - Schema changes: edit `schema.sql` idempotently (if not exists / or replace) — it's meant to be re-runnable.
 
+**`cultivos/[id]/calculadora` has no entry point on purpose** — its button was removed from the cultivo card, and the owner wants the screen kept for later work. Don't delete it as dead code. It answers "how much seed to buy for this area"; the newer `/regulagem` screen (reachable from Início) answers "how to set up the machine", so they are not duplicates.
+
 **Cross-platform choices (keep dependency-light, like Força de Vendas)**
 - No `Alert.alert` with buttons (doesn't render on web): errors/success are inline `Mensagem`; irreversible actions use `BotaoConfirmar` (tap twice).
 - Maps: `lib/mapaHtml.ts` builds a Leaflet page; `components/MapaLeaflet.tsx` (WebView) and `MapaLeaflet.web.tsx` (srcdoc iframe) host it. The page reloads only when the `marcadores` array identity changes — memoize it.
