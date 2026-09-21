@@ -17,6 +17,7 @@ import {
 } from '@/lib/movimentacoes';
 import { lerNfe } from '@/lib/nfe';
 import { cores } from '@/lib/tema';
+import { useFazenda } from '@/contexts/FazendaContext';
 import { useCultivo } from '@/lib/useCultivo';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -92,6 +93,7 @@ function Formulario({
 }) {
   const receita = tipo === 'RECEITA';
   const cor = receita ? cores.receita : cores.despesa;
+  const { fazendaId } = useFazenda();
 
   const [descricao, setDescricao] = useState(existente?.descricao ?? pre.descricao ?? '');
   const [data, setData] = useState(formatDataBR(existente?.data ?? hojeISO()));
@@ -192,7 +194,7 @@ function Formulario({
       const falharam: string[] = [];
       for (const a of anexosNovos) {
         try {
-          await enviarAnexo(id, a);
+          await enviarAnexo(fazendaId ?? '', id, a);
         } catch {
           falharam.push(a.nome_arquivo);
         }

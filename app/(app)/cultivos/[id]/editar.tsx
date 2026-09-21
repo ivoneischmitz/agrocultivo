@@ -23,7 +23,7 @@ export default function EditarCultivoScreen() {
       inicial={cultivo}
       onCancelar={() => router.back()}
       onSalvar={async (input) => {
-        await updateCultivo(cultivo.id, input);
+        await updateCultivo(cultivo.id, { ...input, fazenda_id: cultivo.fazenda_id });
         router.back();
       }}
     />

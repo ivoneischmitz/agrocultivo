@@ -28,7 +28,11 @@ No test runner. Port 8081 is often taken by another Expo project on this machine
 
 **Data access** — thin async function files in `lib/` per table (`cultivos.ts`, `movimentacoes.ts`, `pluviometria.ts`, `fotos.ts`, `anexos.ts`, `perfil.ts`); screens own loading/error state and refresh with `useRecarregarAoFocar`. No cache/query library. PostgREST returns `numeric` as strings — the lib functions convert to `number`; keep doing that at the lib boundary.
 
-**Access model is per-user, unlike Força de Vendas.** Every table has `user_id default auth.uid()` and a single RLS policy `user_id = auth.uid()`. Signup is open (anyone can create an account; they only ever see their own rows). Storage policies restrict both buckets to the `{auth.uid()}/…` folder.
+**Access model is per-farm** (`supabase/fazendas.sql`). Every data table has `fazenda_id`; the RLS policy is `fazenda_id in (select public.minhas_fazendas())`, where that SECURITY DEFINER function reads `fazenda_membros` (definer to avoid the policy recursing into itself). `user_id` stays on each row but now means "who entered it". Signup is open; a new account gets its first fazenda from `garantir_fazenda()`, called by `contexts/FazendaContext.tsx`.
+- Only `cultivos` receives `fazenda_id` from the app (from `useFazenda()`); movimentações, itens, anexos, chuvas and fotos inherit it from the parent via the `herdar_fazenda()` trigger. Keep that pattern for new child tables.
+- Any member can invite (`convites`: single-use token, 7-day expiry, cancellable); only the `dono` can remove members. Joining happens exclusively through the `aceitar_convite()` RPC — there is deliberately no insert policy on `fazenda_membros`.
+- Storage: new files go to `{fazenda_id}/…`; policies also accept legacy `{user_id}/…` paths when a row of the caller's fazenda points at them, so nothing had to be moved.
+- Reads still filter `fazenda_id` in `lib/` for people who belong to more than one farm — RLS alone would merge them.
 
 **Offline-ready schema decisions**: PKs are `uuid` (client-generated, not a Postgres sequence), every table carries `updated_at` (set by trigger, never by the app) and deletes are soft (`deleted_at`, propagated to children by trigger). This exists so the native app can later own a local SQLite copy and sync deltas; keep new tables to the same three rules. Lib functions filter `deleted_at is null` on reads and `update({ deleted_at })` on delete. `supabase/migracao-uuid.sql` is the one-off conversion for the database that predates this.
 

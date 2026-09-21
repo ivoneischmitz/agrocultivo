@@ -1,8 +1,10 @@
 import { extensao, lerBytes } from '@/lib/arquivos';
 import { supabase } from '@/lib/supabase';
 
-// Fotos do cultivo no bucket público `fotos-cultivo`, em {user_id}/arquivo —
-// o mesmo lugar onde o app antigo já as guardava.
+// Fotos do cultivo no bucket público `fotos-cultivo`, em {fazenda_id}/arquivo.
+// Era {user_id}/ até as fazendas compartilhadas existirem: por pessoa, o sócio
+// não conseguiria abrir a foto que o outro tirou. Os arquivos antigos seguem
+// acessíveis pela política do Storage (ver supabase/fazendas.sql).
 
 const BUCKET = 'fotos-cultivo';
 
@@ -26,13 +28,15 @@ export async function listFotos(cultivoId: string): Promise<Foto[]> {
   return data ?? [];
 }
 
-export async function enviarFoto(cultivoId: string, uri: string, mimeType?: string | null): Promise<void> {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) throw new Error('Sessão expirada. Entre novamente.');
-
+export async function enviarFoto(
+  fazendaId: string,
+  cultivoId: string,
+  uri: string,
+  mimeType?: string | null,
+): Promise<void> {
   // Na web a uri é blob:, sem extensão; o mimeType diz o formato.
   const ext = mimeType?.startsWith('image/') ? mimeType.slice(6).replace('jpeg', 'jpg') : extensao(uri);
-  const caminho = `${u.user.id}/${cultivoId}_${Date.now()}.${ext}`;
+  const caminho = `${fazendaId}/${cultivoId}_${Date.now()}.${ext}`;
   const bytes = await lerBytes(uri);
 
   const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(caminho, bytes, {

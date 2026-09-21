@@ -1,5 +1,7 @@
+import { FazendaSeletor } from '@/components/FazendaSeletor';
 import { StatusRede } from '@/components/StatusRede';
 import { useAuth } from '@/contexts/AuthContext';
+import { FazendaProvider } from '@/contexts/FazendaContext';
 import { cores } from '@/lib/tema';
 import { Redirect, Tabs } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -30,15 +32,20 @@ export default function AppLayout() {
   // Entrou pelo link de recuperação: primeiro a senha nova.
   if (isRecovery) return <Redirect href="/nova-senha" />;
 
+  // A fazenda aberta vale para todas as telas daqui para dentro, por isso o
+  // provedor fica aqui e não na raiz: ele depende de haver sessão.
+
   // paddingBottom tira as telas de baixo da barra de navegação do Android (o
   // SDK 57 desenha de ponta a ponta) — ver o mesmo comentário no Força de
   // Vendas. Os Modal usam lib/usePaddingInferior.ts.
   return (
+    <FazendaProvider>
     <View style={{ flex: 1, paddingBottom: insets.bottom, backgroundColor: cores.fundo }}>
       <View style={[styles.topo, { paddingTop: insets.top }]}>
         <View style={styles.topoLinha}>
-          <Text style={styles.marca}>🌾 Agro Cultivo</Text>
+          <Text style={styles.marca} numberOfLines={1}>🌾 Agro Cultivo</Text>
           <View style={styles.direita}>
+            <FazendaSeletor />
             <StatusRede />
             <Pressable onPress={() => signOut()} accessibilityRole="button" style={styles.sair}>
               <Text style={styles.sairTexto}>Sair</Text>
@@ -81,6 +88,7 @@ export default function AppLayout() {
         />
       </Tabs>
     </View>
+    </FazendaProvider>
   );
 }
 
@@ -93,7 +101,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
   },
-  marca: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  marca: { color: '#fff', fontSize: 18, fontWeight: '800', flexShrink: 1 },
   direita: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sair: { paddingVertical: 8, paddingLeft: 12 },
   sairTexto: { color: '#c8e6c9', fontWeight: '700', fontSize: 15 },

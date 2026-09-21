@@ -2,6 +2,7 @@ import { Botao, Cartao } from '@/components/ui';
 import { alertaClima, buscarClima, descricaoClima, iconeClima, type Clima } from '@/lib/clima';
 import { listCultivosResumo, type CultivoResumo } from '@/lib/cultivos';
 import { moeda } from '@/lib/formatar';
+import { useFazenda } from '@/contexts/FazendaContext';
 import { cores } from '@/lib/tema';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { router } from 'expo-router';
@@ -21,6 +22,7 @@ export default function InicioScreen() {
   const [clima, setClima] = useState<Clima | null>(null);
   const [climaCarregando, setClimaCarregando] = useState(true);
   const [cultivos, setCultivos] = useState<CultivoResumo[] | null>(null);
+  const { fazendaId } = useFazenda();
 
   useEffect(() => {
     buscarClima()
@@ -30,7 +32,8 @@ export default function InicioScreen() {
   }, []);
 
   useRecarregarAoFocar(() => {
-    listCultivosResumo()
+    if (!fazendaId) return;
+    listCultivosResumo(fazendaId)
       .then(setCultivos)
       .catch(() => setCultivos([]));
   });

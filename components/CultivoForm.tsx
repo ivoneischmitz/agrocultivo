@@ -10,6 +10,10 @@ import { cores } from '@/lib/tema';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
+// A fazenda não é escolhida no formulário: vem do contexto (cultivo novo) ou do
+// próprio cultivo (edição).
+type CamposCultivo = Omit<CultivoInput, 'fazenda_id'>;
+
 const CULTURAS = ['Soja', 'Milho', 'Trigo', 'Feijão', 'Arroz', 'Algodão', 'Cana-de-açúcar', 'Café'];
 const ANO_ATUAL = new Date().getFullYear();
 const ANOS = Array.from({ length: 10 }, (_, i) => String(ANO_ATUAL - 2 + i));
@@ -20,7 +24,7 @@ const CENTRO_PADRAO = { latitude: -24.72, longitude: -53.74 };
 
 type Props = {
   inicial: Cultivo | null;
-  onSalvar: (input: CultivoInput) => Promise<void>;
+  onSalvar: (input: CamposCultivo) => Promise<void>;
   onCancelar: () => void;
 };
 

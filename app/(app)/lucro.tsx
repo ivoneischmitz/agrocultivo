@@ -2,6 +2,7 @@ import { BarraHorizontal, Cartao, Carregando, Chips, Mensagem, Vazio } from '@/c
 import { HA_POR_ALQUEIRE, listCultivosResumo, type CultivoResumo } from '@/lib/cultivos';
 import { moeda } from '@/lib/formatar';
 import { despesasPorCategoria } from '@/lib/movimentacoes';
+import { useFazenda } from '@/contexts/FazendaContext';
 import { cores } from '@/lib/tema';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { useEffect, useMemo, useState } from 'react';
@@ -15,12 +16,14 @@ type Filtro = (typeof FILTROS)[number];
 // fecha a conta do ano, que é o que interessa ao olhar o lucro.
 export default function LucroScreen() {
   const [todos, setTodos] = useState<CultivoResumo[] | null>(null);
+  const { fazendaId } = useFazenda();
   const [categorias, setCategorias] = useState<{ categoria: string; total: number }[]>([]);
   const [filtro, setFiltro] = useState<Filtro>('Todos');
   const [erro, setErro] = useState<string | null>(null);
 
   useRecarregarAoFocar(() => {
-    listCultivosResumo()
+    if (!fazendaId) return;
+    listCultivosResumo(fazendaId)
       .then(setTodos)
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar.'));
   });

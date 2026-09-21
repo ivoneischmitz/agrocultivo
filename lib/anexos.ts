@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 //
 // No app antigo eram só um caminho de arquivo no celular: não iam para o
 // backup e se perdiam ao trocar de aparelho. Agora o arquivo sobe para o
-// bucket privado `anexos`, em {user_id}/..., e a tabela guarda o caminho.
+// bucket privado `anexos`, em {fazenda_id}/..., e a tabela guarda o caminho.
 
 export type AnexoPendente = {
   uri: string;
@@ -14,11 +14,12 @@ export type AnexoPendente = {
   tipo_arquivo: string | null;
 };
 
-export async function enviarAnexo(movimentacaoId: string, anexo: AnexoPendente): Promise<void> {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) throw new Error('Sessão expirada. Entre novamente.');
-
-  const caminho = `${u.user.id}/${movimentacaoId}/${nomeParaStorage(anexo.nome_arquivo)}`;
+export async function enviarAnexo(
+  fazendaId: string,
+  movimentacaoId: string,
+  anexo: AnexoPendente,
+): Promise<void> {
+  const caminho = `${fazendaId}/${movimentacaoId}/${nomeParaStorage(anexo.nome_arquivo)}`;
   const bytes = await lerBytes(anexo.uri);
   const { error: erroUpload } = await supabase.storage.from('anexos').upload(caminho, bytes, {
     contentType: anexo.tipo_arquivo ?? 'application/octet-stream',

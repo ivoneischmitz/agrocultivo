@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 
 export type Cultivo = {
   id: string;
+  fazenda_id: string;
   nome_cultura: string;
   ano: string;
   localidade: string;
@@ -24,6 +25,9 @@ export type CultivoResumo = Cultivo & {
 };
 
 export type CultivoInput = {
+  // A fazenda dona do cultivo. Os filhos (despesas, chuvas, fotos) herdam a
+  // dela por gatilho no banco, então só aqui o app precisa informar.
+  fazenda_id: string;
   nome_cultura: string;
   ano: string;
   localidade: string;
@@ -52,10 +56,14 @@ function normalizar<T extends Cultivo>(c: T): T {
 }
 
 // Ordem do app antigo: pela data de plantio, sem data por último.
-export async function listCultivosResumo(): Promise<CultivoResumo[]> {
+//
+// O filtro por fazenda é do app, não da segurança: a RLS já esconde o que é de
+// outra fazenda, mas quem participa de duas veria as duas misturadas.
+export async function listCultivosResumo(fazendaId: string): Promise<CultivoResumo[]> {
   const { data, error } = await supabase
     .from('cultivos_resumo')
     .select('*')
+    .eq('fazenda_id', fazendaId)
     .order('data_plantio', { ascending: true, nullsFirst: false })
     .order('id', { ascending: false });
   if (error) throw error;
@@ -85,7 +93,9 @@ export async function createCultivo(input: CultivoInput): Promise<Cultivo> {
 }
 
 export async function updateCultivo(id: string, input: CultivoInput): Promise<Cultivo> {
-  const { data, error } = await supabase.from('cultivos').update(input).eq('id', id).select().single();
+  // fazenda_id fica de fora: editar um cultivo não o muda de fazenda.
+  const { fazenda_id: _, ...campos } = input;
+  const { data, error } = await supabase.from('cultivos').update(campos).eq('id', id).select().single();
   if (error) throw error;
   return normalizar(data as Cultivo);
 }

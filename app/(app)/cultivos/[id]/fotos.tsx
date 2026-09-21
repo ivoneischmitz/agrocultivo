@@ -1,4 +1,5 @@
 import { Botao, BotaoConfirmar, Carregando, Mensagem, Vazio } from '@/components/ui';
+import { useFazenda } from '@/contexts/FazendaContext';
 import { deleteFoto, enviarFoto, listFotos, type Foto } from '@/lib/fotos';
 import { cores } from '@/lib/tema';
 import { useCultivo } from '@/lib/useCultivo';
@@ -12,6 +13,7 @@ import { FlatList, Image, Modal, Platform, Pressable, StyleSheet, Text, useWindo
 // levava até ela; aqui o cartão do cultivo tem "📸 Fotos".
 export default function FotosScreen() {
   const { cultivoId, cultivo } = useCultivo();
+  const { fazendaId } = useFazenda();
   const { width } = useWindowDimensions();
   const padding = usePaddingInferior(16);
   const [fotos, setFotos] = useState<Foto[] | null>(null);
@@ -43,7 +45,8 @@ export default function FotosScreen() {
 
     setEnviando(true);
     try {
-      await enviarFoto(cultivoId, r.assets[0].uri, r.assets[0].mimeType);
+      if (!fazendaId) throw new Error('Fazenda não carregada.');
+      await enviarFoto(fazendaId, cultivoId, r.assets[0].uri, r.assets[0].mimeType);
       carregar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não foi possível enviar a foto.');

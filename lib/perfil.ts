@@ -1,39 +1,27 @@
 import { supabase } from '@/lib/supabase';
 
+// Só o que é da pessoa. Sítio, proprietário, UF e município são da fazenda e
+// moraram aqui até as fazendas compartilhadas existirem — hoje ficam em
+// `fazendas`, à vista de todos os membros (ver supabase/fazendas.sql).
 export type Perfil = {
   nome: string;
-  nome_sitio: string;
-  proprietario: string;
-  uf: string;
-  municipio: string;
 };
 
-export const PERFIL_VAZIO: Perfil = { nome: '', nome_sitio: '', proprietario: '', uf: '', municipio: '' };
+export const PERFIL_VAZIO: Perfil = { nome: '' };
 
 export async function getPerfil(): Promise<Perfil> {
   const { data, error } = await supabase.from('perfis').select('*').maybeSingle();
   if (error) throw error;
   if (!data) return PERFIL_VAZIO;
-  return {
-    nome: data.nome ?? '',
-    nome_sitio: data.nome_sitio ?? '',
-    proprietario: data.proprietario ?? '',
-    uf: data.uf ?? '',
-    municipio: data.municipio ?? '',
-  };
+  return { nome: data.nome ?? '' };
 }
 
 export async function salvarPerfil(perfil: Perfil): Promise<void> {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error('Sessão expirada. Entre novamente.');
-  const vazioViraNull = (v: string) => (v.trim() === '' ? null : v.trim());
   const { error } = await supabase.from('perfis').upsert({
     user_id: u.user.id,
-    nome: vazioViraNull(perfil.nome),
-    nome_sitio: vazioViraNull(perfil.nome_sitio),
-    proprietario: vazioViraNull(perfil.proprietario),
-    uf: vazioViraNull(perfil.uf),
-    municipio: vazioViraNull(perfil.municipio),
+    nome: perfil.nome.trim() === '' ? null : perfil.nome.trim(),
     updated_at: new Date().toISOString(),
   });
   if (error) throw error;

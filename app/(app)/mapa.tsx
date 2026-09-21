@@ -3,6 +3,7 @@ import { Carregando, Mensagem } from '@/components/ui';
 import { posicaoAtual } from '@/lib/clima';
 import { listCultivosResumo, type CultivoResumo } from '@/lib/cultivos';
 import type { Marcador } from '@/lib/mapaHtml';
+import { useFazenda } from '@/contexts/FazendaContext';
 import { cores } from '@/lib/tema';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { useMemo, useRef, useState } from 'react';
@@ -12,10 +13,12 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 export default function MapaScreen() {
   const mapa = useRef<MapaLeafletRef>(null);
   const [cultivos, setCultivos] = useState<CultivoResumo[] | null>(null);
+  const { fazendaId } = useFazenda();
   const [erro, setErro] = useState<string | null>(null);
 
   useRecarregarAoFocar(() => {
-    listCultivosResumo()
+    if (!fazendaId) return;
+    listCultivosResumo(fazendaId)
       .then((l) => setCultivos(l.filter((c) => !c.finalizado)))
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar.'));
   });

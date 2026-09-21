@@ -31,6 +31,7 @@ Projeto: `efpghgwlvmrnnsmwhohy`.
 > **Banco criado antes de setembro/2026** (chaves `bigint`): rode antes `supabase/migracao-uuid.sql`, uma vez, e depois o `schema.sql`. A migração converte as chaves em `uuid` e acrescenta `updated_at` e `deleted_at`, mantendo os dados.
 
 1. **SQL Editor** → cole e rode `supabase/schema.sql`. Ele cria as tabelas, a RLS, a view de totais, a função que grava a movimentação com os itens e os buckets `fotos-cultivo` (público) e `anexos` (privado). Pode ser rodado de novo sem erro.
+1. **SQL Editor** → em seguida rode `supabase/fazendas.sql`, que põe as fazendas compartilhadas no lugar do acesso por pessoa (veja abaixo). Também pode ser rodado de novo.
 2. **Project Settings → API** → copie a *Project URL* e a *anon public key* para o `.env`.
 3. **Authentication → URL Configuration** → em *Site URL* e *Redirect URLs*, coloque o endereço do app publicado (ex.: `https://agrocultivo.vercel.app` e `https://agrocultivo.vercel.app/nova-senha`). É para lá que o link de "Esqueci minha senha" volta.
 4. Preencha `EXPO_PUBLIC_SITE_URL` no `.env` com esse mesmo endereço. É ele que o celular usa no link de recuperação.
@@ -61,6 +62,22 @@ Pode rodar mais de uma vez: quem já tem cultivos no projeto novo é pulado.
 - dados de quem nunca gerou backup. No 1.x o envio automático era só para usuários Pro.
 
 As chaves `service_role` ignoram a RLS: use só no seu computador, nunca no app nem no git.
+
+## Fazendas compartilhadas
+
+Mais de uma pessoa pode trabalhar na mesma base. O dono do dado não é a pessoa, e sim a **fazenda**; as pessoas são membros dela (`supabase/fazendas.sql`). O `user_id` continua em cada linha, agora significando "quem lançou".
+
+Como funciona no app:
+
+- **Perfil → Fazenda**: nome, sítio, proprietário, UF e município, visíveis para todos os membros. O nome da pessoa continua sendo dela, em `perfis`.
+- **Perfil → Quem usa esta fazenda**: lista os membros e gera o convite. No celular abre o compartilhamento (WhatsApp, por exemplo); na web copia o link.
+- **Link do convite**: `/convite/<código>`, de uso único, válido por 7 dias e cancelável. Quem abre sem estar logado entra na conta e o convite é aplicado logo depois.
+- **Quem convida**: qualquer membro. **Quem remove alguém**: só o dono. Quem não é dono pode sair da fazenda.
+- **Várias fazendas**: quem participa de mais de uma troca pelo nome, na barra de cima.
+
+Fotos e anexos novos vão para `{fazenda_id}/...` no Storage, para um membro abrir o arquivo que o outro enviou; os arquivos antigos, em `{user_id}/...`, continuam acessíveis pela política do Storage.
+
+**Cuidado com o link**: quem o receber entra na base e pode lançar e excluir. Cancele o convite se ele for parar no lugar errado.
 
 ## Preparado para funcionar offline no celular
 

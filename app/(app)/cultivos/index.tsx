@@ -2,6 +2,7 @@ import { BotaoConfirmar, Carregando, Chips, Mensagem, Vazio } from '@/components
 import { deleteCultivo, listCultivosResumo, progressoCultivo, type CultivoResumo } from '@/lib/cultivos';
 import { moeda, quantidade } from '@/lib/formatar';
 import { normalize } from '@/lib/normalize';
+import { useFazenda } from '@/contexts/FazendaContext';
 import { cores } from '@/lib/tema';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { router, type Href } from 'expo-router';
@@ -13,12 +14,14 @@ type Filtro = (typeof FILTROS)[number];
 
 export default function CultivosScreen() {
   const [cultivos, setCultivos] = useState<CultivoResumo[] | null>(null);
+  const { fazendaId } = useFazenda();
   const [erro, setErro] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>('Todos');
   const [busca, setBusca] = useState('');
 
   function carregar() {
-    listCultivosResumo()
+    if (!fazendaId) return;
+    listCultivosResumo(fazendaId)
       .then((l) => {
         setCultivos(l);
         setErro(null);

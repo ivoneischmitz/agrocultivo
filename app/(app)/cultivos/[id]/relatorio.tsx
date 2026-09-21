@@ -4,6 +4,7 @@ import { formatDataBR } from '@/lib/data';
 import { moeda, quantidade } from '@/lib/formatar';
 import { imprimirHtml } from '@/lib/imprimir';
 import { listMovimentacoes, siglaUnidade, type Movimentacao } from '@/lib/movimentacoes';
+import { useFazenda } from '@/contexts/FazendaContext';
 import { getPerfil } from '@/lib/perfil';
 import { relatorioHtml } from '@/lib/relatorioHtml';
 import { cores } from '@/lib/tema';
@@ -16,6 +17,7 @@ const CORES_GRAFICO = ['#c62828', '#ef6c00', '#6a1b9a', '#1565c0', '#00838f', '#
 
 export default function RelatorioScreen() {
   const { cultivoId, cultivo, erro: erroCultivo } = useCultivo();
+  const { fazenda } = useFazenda();
   const [movs, setMovs] = useState<Movimentacao[] | null>(null);
   const [produtor, setProdutor] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -28,11 +30,13 @@ export default function RelatorioScreen() {
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar.'));
   });
 
+  // No cabeçalho do relatório sai o proprietário da fazenda; na falta dele, o
+  // nome de quem está usando o app.
   useEffect(() => {
     getPerfil()
-      .then((p) => setProdutor(p.nome || p.proprietario || null))
-      .catch(() => setProdutor(null));
-  }, []);
+      .then((p) => setProdutor(fazenda?.proprietario || p.nome || null))
+      .catch(() => setProdutor(fazenda?.proprietario || null));
+  }, [fazenda]);
 
   const resumo = useMemo(() => {
     const lista = movs ?? [];
