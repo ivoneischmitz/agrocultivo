@@ -63,6 +63,27 @@ Pode rodar mais de uma vez: quem já tem cultivos no projeto novo é pulado.
 
 As chaves `service_role` ignoram a RLS: use só no seu computador, nunca no app nem no git.
 
+## E-mails (confirmação de cadastro e senha)
+
+O serviço de e-mail embutido do Supabase é só para teste: manda **2 e-mails por hora no projeto inteiro**, costuma cair em spam e às vezes nem sai. Com ele, "Esqueci minha senha" não é confiável — e é justamente o caminho de quem veio do app antigo sem senha.
+
+Para valer, configure um SMTP próprio em **Project Settings → Authentication → SMTP Settings**. Com o Brevo (grátis, 300 e-mails/dia, sem precisar de domínio):
+
+| Campo | Valor |
+|---|---|
+| Host | `smtp-relay.brevo.com` |
+| Port | `587` |
+| Username | o login SMTP do Brevo (`8xxxxx@smtp-brevo.com`) |
+| Password | a master password do Brevo |
+| Sender email | o endereço confirmado como remetente no Brevo |
+| Sender name | `Agro Cultivo` |
+
+Depois ligue **Confirm email** em **Authentication → Providers → Email** e cole os modelos de `supabase/emails/` em **Authentication → Emails** (eles vêm em inglês de fábrica).
+
+Enviar como `@gmail.com` por outro servidor prejudica a entrega, porque o Gmail publica regras contra isso. Entre poucas pessoas funciona; crescendo, vale um domínio próprio.
+
+**Sem SMTP configurado:** deixe a confirmação de e-mail desligada, senão ninguém se cadastra, e troque senhas esquecidas na mão em **Authentication → Users**.
+
 ## Fazendas compartilhadas
 
 Mais de uma pessoa pode trabalhar na mesma base. O dono do dado não é a pessoa, e sim a **fazenda**; as pessoas são membros dela (`supabase/fazendas.sql`). O `user_id` continua em cada linha, agora significando "quem lançou".
