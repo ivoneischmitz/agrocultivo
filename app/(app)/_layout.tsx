@@ -1,3 +1,4 @@
+import { StatusRede } from '@/components/StatusRede';
 import { useAuth } from '@/contexts/AuthContext';
 import { cores } from '@/lib/tema';
 import { Redirect, Tabs } from 'expo-router';
@@ -37,9 +38,12 @@ export default function AppLayout() {
       <View style={[styles.topo, { paddingTop: insets.top }]}>
         <View style={styles.topoLinha}>
           <Text style={styles.marca}>🌾 Agro Cultivo</Text>
-          <Pressable onPress={() => signOut()} accessibilityRole="button" style={styles.sair}>
-            <Text style={styles.sairTexto}>Sair</Text>
-          </Pressable>
+          <View style={styles.direita}>
+            <StatusRede />
+            <Pressable onPress={() => signOut()} accessibilityRole="button" style={styles.sair}>
+              <Text style={styles.sairTexto}>Sair</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
       <Tabs
@@ -84,6 +88,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   marca: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  direita: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sair: { paddingVertical: 8, paddingLeft: 12 },
   sairTexto: { color: '#c8e6c9', fontWeight: '700', fontSize: 15 },
 });
