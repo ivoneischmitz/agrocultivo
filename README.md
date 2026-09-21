@@ -103,3 +103,4 @@ As variáveis `EXPO_PUBLIC_*` precisam existir no ambiente do EAS (`eas env:crea
 | Anexos só no celular | Anexos no Storage (bucket privado, link temporário) |
 | Tela de fotos sem acesso pelo app | Botão "📸 Fotos" no cartão do cultivo |
 | Talhões (tabela órfã) | Removido |
+| App "Regulagem de Plantio" separado (HTML + Capacitor) | Tela de regulagem dentro do app, pelo botão no Início |

@@ -109,6 +109,7 @@ export default function InicioScreen() {
         <Botao titulo="🌱 Ver meus cultivos" onPress={() => router.push('/cultivos')} />
         <Botao titulo="+ Novo cultivo" contorno onPress={() => router.push('/cultivos/novo')} />
         <Botao titulo="💹 Lucro dos cultivos" contorno onPress={() => router.push('/lucro')} />
+        <Botao titulo="⚙️ Regulagem de plantio" contorno onPress={() => router.push('/regulagem')} />
         <Botao titulo="📍 Mapa satélite da safra" contorno onPress={() => router.push('/mapa')} />
       </View>
     </ScrollView>

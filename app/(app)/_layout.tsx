@@ -73,6 +73,12 @@ export default function AppLayout() {
         <Tabs.Screen name="lucro" options={{ title: 'Lucro' }} />
         <Tabs.Screen name="mapa" options={{ title: 'Mapa' }} />
         <Tabs.Screen name="perfil" options={{ title: 'Perfil' }} />
+        {/* Fora do menu: chega pelo botão do Início. href: null tira a aba, a
+            rota continua existindo. */}
+        <Tabs.Screen
+          name="regulagem"
+          options={{ href: null, headerShown: true, title: 'Regulagem de plantio' }}
+        />
       </Tabs>
     </View>
   );
