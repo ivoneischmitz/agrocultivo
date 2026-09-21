@@ -463,7 +463,11 @@ create trigger fazendas_updated_at before update on public.fazendas
   for each row execute function public.marcar_updated_at();
 
 -- ── Totais por cultivo, agora com a fazenda junto ────────────────────────────
-create or replace view public.cultivos_resumo
+-- Removida antes de recriar: a view expõe c.*, e quando a tabela ganha uma
+-- coluna nova o "create or replace" esbarra na ordem das colunas
+-- (cannot change name of view column ...).
+drop view if exists public.cultivos_resumo;
+create view public.cultivos_resumo
 with (security_invoker = true) as
 select
   c.*,

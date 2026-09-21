@@ -224,7 +224,11 @@ end $$;
 -- Uma consulta traz a lista de cultivos já com despesas, receitas e chuva —
 -- no app antigo eram três consultas por cartão. security_invoker faz a view
 -- respeitar a RLS de quem consulta, em vez da do dono da view.
-create or replace view public.cultivos_resumo
+-- Removida antes de recriar: a view expõe c.*, e quando a tabela ganha uma
+-- coluna nova o "create or replace" esbarra na ordem das colunas
+-- (cannot change name of view column ...).
+drop view if exists public.cultivos_resumo;
+create view public.cultivos_resumo
 with (security_invoker = true) as
 select
   c.*,
