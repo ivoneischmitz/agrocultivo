@@ -5,8 +5,9 @@ import { cores } from '@/lib/tema';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-// Regulagem da semeadeira: quantos gramas de semente devem cair por metro de
-// linha e quanto deve pesar a semente recolhida no teste de campo.
+// Regulagem da semeadeira/adubadeira: quantos gramas devem cair por metro de
+// linha e quanto deve pesar o que for recolhido no teste de campo. Serve tanto
+// para semente quanto para fertilizante — a conta é a mesma.
 //
 // Veio do app "Regulagem de Plantio" (C:\Utilitarios\AppRegulagem), que era um
 // HTML solto empacotado com Capacitor. A conta é a mesma; o que mudou foi a
@@ -74,13 +75,13 @@ export default function RegulagemScreen() {
             <Text style={styles.titulo}>Resultado da regulagem</Text>
             <Linha rotulo="Espaçamento" valor={`${n(cm, 0)} cm`} />
             <Linha rotulo="Metros de linha na área" valor={`${n(metrosDeLinha, 0)} m`} />
-            <Linha rotulo="Semente por metro linear" valor={`${n(gramasPorMetro, 2)} g/m`} destaque />
+            <Linha rotulo="Semente/fertilizante por metro linear" valor={`${n(gramasPorMetro, 2)} g/m`} destaque />
           </Cartao>
 
           <Cartao style={styles.teste}>
             <Text style={styles.titulo}>Teste prático</Text>
             <Text style={styles.explicacao}>
-              Pese o saquinho de uma linha depois de andar {n(metros, 0)} metros. O peso deve ser de:
+              Pese o que sair de uma linha depois de andar {n(metros, 0)} metros. O peso deve ser de:
             </Text>
             <Text style={styles.peso}>{n(pesoDoTeste, 1)} g</Text>
           </Cartao>
