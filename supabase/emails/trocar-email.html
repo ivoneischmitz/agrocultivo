@@ -1,0 +1,68 @@
+<!--
+  Modelo do e-mail "Change Email Address" (Confirm your new email address).
+
+  Onde colar: Supabase → Authentication → Emails → "Change Email Address".
+  Assunto sugerido: Confirme seu novo e-mail no Agro Cultivo
+
+  Quando é usado: quando alguém troca o e-mail da conta. O Supabase manda a
+  confirmação para o endereço NOVO, e a troca só vale depois do clique.
+
+  Marcações trocadas pelo Supabase no envio (não altere):
+    {{ .Email }}    → o endereço antigo
+    {{ .NewEmail }} → o endereço novo
+    {{ .ConfirmationURL }} → o link que confirma a troca
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="background:#f4f7f2;padding:24px 0;font-family:Arial,Helvetica,sans-serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+             style="max-width:480px;background:#ffffff;border-radius:12px;padding:28px;">
+        <tr>
+          <td align="center" style="font-size:34px;">✉️</td>
+        </tr>
+        <tr>
+          <td align="center" style="font-size:22px;font-weight:bold;color:#1b5e20;padding-bottom:4px;">
+            Agro Cultivo
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="font-size:15px;color:#5b6b5b;padding-bottom:20px;">
+            Confirme seu novo e-mail
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:15px;color:#1a2e1a;line-height:22px;padding-bottom:20px;">
+            Foi pedida a troca do e-mail da conta de <strong>{{ .Email }}</strong> para
+            <strong>{{ .NewEmail }}</strong>.
+            <br><br>
+            Toque no botão abaixo para confirmar. Enquanto você não confirmar, a entrada continua
+            sendo pelo endereço antigo.
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding-bottom:20px;">
+            <a href="{{ .ConfirmationURL }}"
+               style="background:#2e7d32;color:#ffffff;text-decoration:none;font-weight:bold;
+                      font-size:16px;padding:14px 28px;border-radius:8px;display:inline-block;">
+              Confirmar novo e-mail
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;color:#5b6b5b;line-height:20px;">
+            Se o botão não funcionar, copie e cole este endereço no navegador:<br>
+            <span style="color:#2e7d32;word-break:break-all;">{{ .ConfirmationURL }}</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;color:#8a978a;line-height:20px;padding-top:20px;
+                     border-top:1px solid #eef2ec;">
+            Não foi você quem pediu a troca? Ignore este e-mail e a mudança não acontece. Vale
+            trocar a senha da conta, por segurança.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
