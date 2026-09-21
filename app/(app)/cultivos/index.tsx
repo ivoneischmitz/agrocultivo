@@ -174,7 +174,6 @@ function CartaoCultivo({ c, onExcluir }: { c: CultivoResumo; onExcluir: () => vo
         <Acao texto="💰 Receitas" cor={cores.receita} fundo={cores.receitaClara} onPress={() => ir('/movimentacoes?tipo=RECEITA')} />
         <Acao texto="📊 Relatório" cor={cores.relatorio} fundo={cores.relatorioClara} onPress={() => ir('/relatorio')} />
         <Acao texto="🌧️ Chuvas" cor={cores.chuva} fundo={cores.chuvaClara} onPress={() => ir('/chuvas')} />
-        <Acao texto="📐 Calculadora" cor="#00838f" fundo="#e0f7fa" onPress={() => ir('/calculadora')} />
         <Acao texto="📸 Fotos" cor={cores.alerta} fundo={cores.alertaClara} onPress={() => ir('/fotos')} />
       </View>
 
