@@ -105,6 +105,13 @@ export function linkDoConvite(token: string): string {
   return `${baseDoSite()}/convite/${token}`;
 }
 
+// Endereço do app, para indicar a alguém que ainda não usa. Não confundir com
+// linkDoConvite: este não dá acesso a fazenda nenhuma — quem abre cria a
+// própria conta, com a própria lavoura.
+export function linkDoApp(): string {
+  return baseDoSite();
+}
+
 export async function criarConvite(fazendaId: string): Promise<Convite> {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error('Sessão expirada. Entre novamente.');

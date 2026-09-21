@@ -6,6 +6,7 @@ import { useFazenda } from '@/contexts/FazendaContext';
 import {
   cancelarConvite,
   criarConvite,
+  linkDoApp,
   linkDoConvite,
   listConvitesAbertos,
   listMembros,
@@ -52,6 +53,7 @@ export default function PerfilScreen() {
           <Membros key={`membros-${fazenda.id}`} fazenda={fazenda} aoMudar={recarregar} />
         </>
       )}
+      <IndicarApp />
       <Sobre />
     </ScrollView>
   );
@@ -326,6 +328,58 @@ function Membros({ fazenda, aoMudar }: { fazenda: Fazenda; aoMudar: () => Promis
   );
 }
 
+// Indicar o app para quem ainda não usa.
+//
+// Propositalmente separado do convite da fazenda, e com texto dizendo o que
+// faz: são duas coisas que parecem a mesma e têm efeitos bem diferentes. Este
+// link não dá acesso a nada seu; o outro dá acesso a tudo.
+function IndicarApp() {
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const link = linkDoApp();
+  const mensagem =
+    'Conheça o Agro Cultivo: aplicativo para controlar a lavoura — despesas, receitas, ' +
+    `chuvas, fotos e relatório da safra. Crie sua conta: ${link}`;
+
+  async function indicar() {
+    setErro(null);
+    setAviso(null);
+    try {
+      if (Platform.OS === 'web') {
+        await Clipboard.setStringAsync(mensagem);
+        setAviso('Mensagem copiada. É só colar no WhatsApp.');
+      } else {
+        await Share.share({ message: mensagem });
+      }
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível compartilhar.');
+    }
+  }
+
+  return (
+    <Cartao>
+      <Text style={styles.secao}>📣 Indicar o app</Text>
+      <Text style={styles.aviso}>
+        Envie o aplicativo para outro produtor. Quem receber vai{' '}
+        <Text style={styles.negrito}>criar a conta dele, com a lavoura dele</Text> — este link não
+        dá acesso à sua fazenda.
+      </Text>
+      <Mensagem texto={erro} />
+      <Mensagem texto={aviso} tipo="sucesso" />
+      <Botao
+        titulo={Platform.OS === 'web' ? '📋 Copiar mensagem para o WhatsApp' : '📤 Enviar pelo WhatsApp'}
+        contorno
+        onPress={indicar}
+        style={{ marginTop: 10 }}
+      />
+      <Text style={styles.linkTexto} selectable>
+        {link}
+      </Text>
+    </Cartao>
+  );
+}
+
 function Sobre() {
   return (
     <Cartao style={{ alignItems: 'center' }}>
@@ -344,6 +398,8 @@ const styles = StyleSheet.create({
   subsecao: { fontWeight: '700', color: cores.texto, marginBottom: 6 },
   email: { fontSize: 15, fontWeight: '600', color: cores.primariaEscura, marginBottom: 12 },
   aviso: { fontSize: 12, color: cores.textoSecundario, marginTop: 8 },
+  negrito: { fontWeight: '700', color: cores.texto },
+  linkTexto: { fontSize: 12, color: cores.primaria, textAlign: 'center', marginTop: 10 },
   membro: {
     flexDirection: 'row',
     alignItems: 'center',
