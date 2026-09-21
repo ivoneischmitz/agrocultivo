@@ -1,0 +1,67 @@
+<!--
+  Modelo do e-mail "Magic Link" (Your sign-in link).
+
+  Onde colar: Supabase → Authentication → Emails → "Magic Link".
+  Assunto sugerido: Seu link de acesso ao Agro Cultivo
+
+  Quando é usado: entrada sem senha, só pelo link. O app hoje entra por e-mail
+  e senha, então este e-mail só sai se o acesso por link for ligado em
+  Authentication → Providers → Email. Deixar o modelo pronto evita que, no dia
+  em que for ligado, a mensagem chegue em inglês.
+
+  {{ .ConfirmationURL }} e {{ .Email }} são trocados pelo Supabase no envio.
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="background:#f4f7f2;padding:24px 0;font-family:Arial,Helvetica,sans-serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+             style="max-width:480px;background:#ffffff;border-radius:12px;padding:28px;">
+        <tr>
+          <td align="center" style="font-size:34px;">🔐</td>
+        </tr>
+        <tr>
+          <td align="center" style="font-size:22px;font-weight:bold;color:#1b5e20;padding-bottom:4px;">
+            Agro Cultivo
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="font-size:15px;color:#5b6b5b;padding-bottom:20px;">
+            Seu link de acesso
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:15px;color:#1a2e1a;line-height:22px;padding-bottom:20px;">
+            Alguém pediu para entrar no Agro Cultivo com o e-mail
+            <strong>{{ .Email }}</strong>. Toque no botão abaixo e você entra direto, sem digitar
+            senha.
+            <br><br>
+            O link vale por uma hora e serve uma vez só.
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding-bottom:20px;">
+            <a href="{{ .ConfirmationURL }}"
+               style="background:#2e7d32;color:#ffffff;text-decoration:none;font-weight:bold;
+                      font-size:16px;padding:14px 28px;border-radius:8px;display:inline-block;">
+              Entrar no Agro Cultivo
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;color:#5b6b5b;line-height:20px;">
+            Se o botão não funcionar, copie e cole este endereço no navegador:<br>
+            <span style="color:#2e7d32;word-break:break-all;">{{ .ConfirmationURL }}</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:13px;color:#8a978a;line-height:20px;padding-top:20px;
+                     border-top:1px solid #eef2ec;">
+            Não foi você quem pediu? Ignore este e-mail. Ninguém entra na sua conta sem abrir o
+            link acima — e ele só chega neste endereço.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
