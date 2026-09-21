@@ -53,7 +53,7 @@ export default function RegulagemScreen() {
           onChangeText={setEspacamento}
         />
         <Campo
-          label="🌾 Quilos de semente por essa área"
+          label="🌾 Quilos de semente/fertilizante por essa área"
           placeholder="Ex: 300"
           keyboardType="decimal-pad"
           value={quilos}
