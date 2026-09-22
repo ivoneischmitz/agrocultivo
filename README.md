@@ -63,6 +63,15 @@ Pode rodar mais de uma vez: quem já tem cultivos no projeto novo é pulado.
 
 As chaves `service_role` ignoram a RLS: use só no seu computador, nunca no app nem no git.
 
+## Exclusão de conta
+
+A Play Store exige que um app com cadastro ofereça, dentro do app, um caminho para apagar conta e dados — e um endereço na web para o mesmo pedido, sem instalar nada. Aqui são dois:
+
+- **No app**: Perfil → Excluir minha conta (pede a palavra EXCLUIR digitada, porque não tem volta)
+- **Na web**: `https://agrocultivo.vercel.app/excluir-conta` — é esse link que vai no cadastro do aplicativo na Play Console
+
+A regra com fazenda compartilhada está em `supabase/excluir-conta.sql`: fazenda em que a pessoa está sozinha é apagada inteira; fazenda com outros membros continua (os lançamentos também são deles) e ela apenas sai, passando a posse ao membro mais antigo se era a dona.
+
 ## E-mails (confirmação de cadastro e senha)
 
 O serviço de e-mail embutido do Supabase é só para teste: manda **2 e-mails por hora no projeto inteiro**, costuma cair em spam e às vezes nem sai. Com ele, "Esqueci minha senha" não é confiável — e é justamente o caminho de quem veio do app antigo sem senha.

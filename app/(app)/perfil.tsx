@@ -1,4 +1,5 @@
 import { ComboBox } from '@/components/ComboBox';
+import { ExcluirConta } from '@/components/ExcluirConta';
 import { SelectField } from '@/components/SelectField';
 import { Botao, BotaoConfirmar, Campo, Cartao, Carregando, Mensagem } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,6 +56,7 @@ export default function PerfilScreen() {
       )}
       <IndicarApp />
       <Sobre />
+      <ExcluirConta />
     </ScrollView>
   );
 }
