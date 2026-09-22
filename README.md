@@ -63,6 +63,15 @@ Pode rodar mais de uma vez: quem já tem cultivos no projeto novo é pulado.
 
 As chaves `service_role` ignoram a RLS: use só no seu computador, nunca no app nem no git.
 
+## Lendo a nota fiscal do fornecedor
+
+Ao anexar um arquivo no lançamento de despesa, o app pergunta se deve preencher os produtos com os dados da nota.
+
+- **XML da NF-e**: dado estruturado, sai exato (`lib/nfe.ts`).
+- **PDF da DANFE**: o texto é extraído com o pdf.js, que roda numa WebView escondida no celular e num iframe na web (`components/LeitorPdf*`, `lib/pdfHtml.ts`), e a tabela de produtos é reconhecida em `lib/danfe.ts`. Como é leitura de página impressa, cada item passa por uma conferência — quantidade × valor unitário tem que bater com o total da linha — e o que não fecha vem marcado na tela.
+
+O pdf.js vem de CDN, então ler PDF exige internet, diferente do resto do app. Nota digitalizada (foto do papel) não tem texto e não é lida.
+
 ## Exclusão de conta
 
 A Play Store exige que um app com cadastro ofereça, dentro do app, um caminho para apagar conta e dados — e um endereço na web para o mesmo pedido, sem instalar nada. Aqui são dois:

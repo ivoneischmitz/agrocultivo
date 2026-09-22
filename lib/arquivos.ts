@@ -16,6 +16,22 @@ export async function lerBytes(uri: string): Promise<ArrayBuffer> {
   return new File(uri).arrayBuffer();
 }
 
+// Base64 do arquivo, que é como o PDF viaja até o leitor (o pdf.js roda numa
+// WebView/iframe, e por ali só passa texto).
+export async function lerBase64(uri: string): Promise<string> {
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(uri)).blob();
+    const lido = await new Promise<string>((ok, falha) => {
+      const leitor = new FileReader();
+      leitor.onload = () => ok(String(leitor.result));
+      leitor.onerror = () => falha(new Error('Não foi possível ler o arquivo.'));
+      leitor.readAsDataURL(blob);
+    });
+    return lido.slice(lido.indexOf(',') + 1);
+  }
+  return new File(uri).base64();
+}
+
 export async function lerTexto(uri: string): Promise<string> {
   if (Platform.OS === 'web') {
     const resp = await fetch(uri);

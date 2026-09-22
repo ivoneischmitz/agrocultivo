@@ -1,8 +1,9 @@
 import { DateField } from '@/components/DateField';
+import { LeitorPdf, type LeitorPdfRef } from '@/components/LeitorPdf';
 import { SelectField } from '@/components/SelectField';
 import { Botao, Campo, Carregando, Mensagem, styles as ui } from '@/components/ui';
 import { enviarAnexo, removerAnexo, type AnexoPendente } from '@/lib/anexos';
-import { lerTexto } from '@/lib/arquivos';
+import { lerBase64, lerTexto } from '@/lib/arquivos';
 import { formatDataBR, hojeISO, parseDataBR } from '@/lib/data';
 import { moeda, paraCampo, parseNumeroLivre } from '@/lib/formatar';
 import {
@@ -15,13 +16,14 @@ import {
   type Movimentacao,
   type TipoMovimentacao,
 } from '@/lib/movimentacoes';
+import { lerDanfe } from '@/lib/danfe';
 import { lerNfe } from '@/lib/nfe';
 import { cores } from '@/lib/tema';
 import { useFazenda } from '@/contexts/FazendaContext';
 import { useCultivo } from '@/lib/useCultivo';
 import * as DocumentPicker from 'expo-document-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 type ItemForm = { chave: string; descricao: string; unidade: string; quantidade: string; valor: string };
@@ -112,6 +114,8 @@ function Formulario({
   // Nota fiscal anexada que ainda não foi lida: a tela pergunta antes de
   // mexer no que a pessoa já digitou.
   const [notaParaLer, setNotaParaLer] = useState<AnexoPendente | null>(null);
+  const [lendoNota, setLendoNota] = useState(false);
+  const leitorPdf = useRef<LeitorPdfRef>(null);
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -145,6 +149,48 @@ function Formulario({
     }
   }
 
+  // PDF da DANFE: o texto sai do pdf.js (LeitorPdf) e o reconhecimento da
+  // tabela fica em lib/danfe.ts. Diferente do XML, aqui é leitura de uma
+  // página desenhada — por isso cada item é conferido pela multiplicação
+  // quantidade × valor, e o que não fecha vem marcado.
+  async function preencherComPdf(uri: string) {
+    setErro(null);
+    setAviso(null);
+    try {
+      const texto = await leitorPdf.current!.extrairTexto(await lerBase64(uri));
+      const nota = lerDanfe(texto);
+      if (nota.itens.length === 0) {
+        setErro(
+          'Não consegui reconhecer os produtos neste PDF. Se tiver o XML da nota, ele dá o resultado exato.',
+        );
+        return;
+      }
+      if (nota.emitente) setDescricao(nota.emitente);
+      if (nota.data) setData(formatDataBR(nota.data));
+      setItens(
+        nota.itens.map((i) =>
+          novoItem({
+            descricao: i.descricao,
+            unidade: i.unidade,
+            quantidade: paraCampo(i.quantidade),
+            valor: paraCampo(i.valor),
+          }),
+        ),
+      );
+      setAviso(
+        nota.paraConferir > 0
+          ? `⚠️ ${nota.itens.length} produto(s) trazido(s), ${nota.paraConferir} com valor que não fechou. Confira antes de salvar.`
+          : `✅ ${nota.itens.length} produto(s) trazido(s) do PDF. Confira os valores e salve.`,
+      );
+    } catch (e) {
+      setErro(
+        e instanceof Error
+          ? `Falha ao ler o PDF: ${e.message}`
+          : 'Falha ao ler o PDF.',
+      );
+    }
+  }
+
   async function importarXml() {
     setErro(null);
     setAviso(null);
@@ -157,11 +203,13 @@ function Formulario({
     }
   }
 
-  // XML de NF-e é dado estruturado: dá para trazer os produtos exatos. O PDF
-  // da DANFE é uma página desenhada, cada emissor com um layout, e por isso
-  // fica de fora — anexa normalmente, mas sem extrair nada.
-  function ehNotaFiscal(a: AnexoPendente): boolean {
-    return /\.xml$/i.test(a.nome_arquivo) || /xml/i.test(a.tipo_arquivo ?? '');
+  // XML de NF-e é dado estruturado: os produtos saem exatos. O PDF da DANFE é
+  // uma página desenhada, e a leitura dele é um palpite educado — daí a
+  // conferência item a item em lib/danfe.ts e o aviso na tela.
+  function tipoDeNota(a: AnexoPendente): 'xml' | 'pdf' | null {
+    if (/\.xml$/i.test(a.nome_arquivo) || /xml/i.test(a.tipo_arquivo ?? '')) return 'xml';
+    if (/\.pdf$/i.test(a.nome_arquivo) || /pdf/i.test(a.tipo_arquivo ?? '')) return 'pdf';
+    return null;
   }
 
   async function anexar() {
@@ -171,7 +219,7 @@ function Formulario({
       const a = r.assets[0];
       const anexo: AnexoPendente = { uri: a.uri, nome_arquivo: a.name, tipo_arquivo: a.mimeType ?? null };
       setAnexosNovos((l) => [...l, anexo]);
-      if (ehNotaFiscal(anexo)) setNotaParaLer(anexo);
+      if (tipoDeNota(anexo)) setNotaParaLer(anexo);
     } catch {
       setErro('Não foi possível anexar o arquivo.');
     }
@@ -333,7 +381,12 @@ function Formulario({
               <Text style={{ fontWeight: '700' }}>{notaParaLer.nome_arquivo}</Text> parece uma nota
               fiscal. Quer preencher os produtos, as quantidades e os valores com os dados dela?
             </Text>
-            <Text style={styles.perguntaAviso}>Isso substitui os itens que já estão na tela.</Text>
+            <Text style={styles.perguntaAviso}>
+              Isso substitui os itens que já estão na tela.
+              {tipoDeNota(notaParaLer) === 'pdf'
+                ? ' O PDF é lido da página impressa, então confira os valores; o XML da nota, quando existe, sai exato.'
+                : ''}
+            </Text>
             <View style={styles.perguntaBotoes}>
               <Botao
                 titulo="Não, só anexar"
@@ -347,10 +400,19 @@ function Formulario({
                 titulo="Sim, preencher"
                 pequeno
                 cor={cores.chuva}
+                carregando={lendoNota}
                 onPress={async () => {
                   const nota = notaParaLer;
+                  if (!nota) return;
+                  const tipo = tipoDeNota(nota);
                   setNotaParaLer(null);
-                  if (nota) await preencherComNota(nota.uri);
+                  setLendoNota(true);
+                  try {
+                    if (tipo === 'pdf') await preencherComPdf(nota.uri);
+                    else await preencherComNota(nota.uri);
+                  } finally {
+                    setLendoNota(false);
+                  }
                 }}
                 style={{ flex: 1 }}
               />
@@ -378,6 +440,8 @@ function Formulario({
         <Botao titulo={existente ? '💾 Salvar alterações' : `✅ Salvar ${receita ? 'receita' : 'despesa'}`} cor={cor} onPress={salvar} carregando={salvando} style={{ marginTop: 20 }} />
         <Botao titulo="Cancelar" contorno cor={cores.textoSecundario} onPress={() => router.back()} style={{ marginTop: 10 }} />
       </ScrollView>
+      {/* Escondido: só existe para o pdf.js estar pronto quando um PDF chegar. */}
+      <LeitorPdf ref={leitorPdf} />
     </KeyboardAvoidingView>
   );
 }
