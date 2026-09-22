@@ -109,6 +109,9 @@ function Formulario({
   });
   const [anexosSalvos, setAnexosSalvos] = useState<Anexo[]>(existente?.anexos ?? []);
   const [anexosNovos, setAnexosNovos] = useState<AnexoPendente[]>([]);
+  // Nota fiscal anexada que ainda não foi lida: a tela pergunta antes de
+  // mexer no que a pessoa já digitou.
+  const [notaParaLer, setNotaParaLer] = useState<AnexoPendente | null>(null);
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -120,13 +123,13 @@ function Formulario({
     setItens((l) => l.map((i) => (i.chave === chave ? { ...i, [campo]: valor } : i)));
   }
 
-  async function importarXml() {
+  // Preenche descrição, data e itens a partir do XML. Vale tanto para o botão
+  // de importar quanto para o arquivo que acabou de ser anexado.
+  async function preencherComNota(uri: string) {
     setErro(null);
     setAviso(null);
     try {
-      const r = await DocumentPicker.getDocumentAsync({ type: ['text/xml', 'application/xml', '*/*'], copyToCacheDirectory: true });
-      if (r.canceled) return;
-      const nota = lerNfe(await lerTexto(r.assets[0].uri));
+      const nota = lerNfe(await lerTexto(uri));
       if (nota.emitente) setDescricao(nota.emitente);
       if (nota.data) setData(formatDataBR(nota.data));
       if (nota.itens.length > 0) {
@@ -136,10 +139,29 @@ function Formulario({
           ),
         );
       }
-      setAviso('✅ Dados da NF-e importados. Confira e salve.');
+      setAviso(`✅ ${nota.itens.length} produto(s) trazido(s) da nota. Confira os valores e salve.`);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao processar o XML.');
     }
+  }
+
+  async function importarXml() {
+    setErro(null);
+    setAviso(null);
+    try {
+      const r = await DocumentPicker.getDocumentAsync({ type: ['text/xml', 'application/xml', '*/*'], copyToCacheDirectory: true });
+      if (r.canceled) return;
+      await preencherComNota(r.assets[0].uri);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Falha ao processar o XML.');
+    }
+  }
+
+  // XML de NF-e é dado estruturado: dá para trazer os produtos exatos. O PDF
+  // da DANFE é uma página desenhada, cada emissor com um layout, e por isso
+  // fica de fora — anexa normalmente, mas sem extrair nada.
+  function ehNotaFiscal(a: AnexoPendente): boolean {
+    return /\.xml$/i.test(a.nome_arquivo) || /xml/i.test(a.tipo_arquivo ?? '');
   }
 
   async function anexar() {
@@ -147,7 +169,9 @@ function Formulario({
       const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
       if (r.canceled) return;
       const a = r.assets[0];
-      setAnexosNovos((l) => [...l, { uri: a.uri, nome_arquivo: a.name, tipo_arquivo: a.mimeType ?? null }]);
+      const anexo: AnexoPendente = { uri: a.uri, nome_arquivo: a.name, tipo_arquivo: a.mimeType ?? null };
+      setAnexosNovos((l) => [...l, anexo]);
+      if (ehNotaFiscal(anexo)) setNotaParaLer(anexo);
     } catch {
       setErro('Não foi possível anexar o arquivo.');
     }
@@ -302,6 +326,37 @@ function Formulario({
         </View>
 
         <Text style={[ui.label, { marginTop: 8 }]}>📎 Anexos (notas fiscais, documentos)</Text>
+
+        {notaParaLer && (
+          <View style={styles.perguntaNota}>
+            <Text style={styles.perguntaTexto}>
+              <Text style={{ fontWeight: '700' }}>{notaParaLer.nome_arquivo}</Text> parece uma nota
+              fiscal. Quer preencher os produtos, as quantidades e os valores com os dados dela?
+            </Text>
+            <Text style={styles.perguntaAviso}>Isso substitui os itens que já estão na tela.</Text>
+            <View style={styles.perguntaBotoes}>
+              <Botao
+                titulo="Não, só anexar"
+                contorno
+                pequeno
+                cor={cores.textoSecundario}
+                onPress={() => setNotaParaLer(null)}
+                style={{ flex: 1 }}
+              />
+              <Botao
+                titulo="Sim, preencher"
+                pequeno
+                cor={cores.chuva}
+                onPress={async () => {
+                  const nota = notaParaLer;
+                  setNotaParaLer(null);
+                  if (nota) await preencherComNota(nota.uri);
+                }}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        )}
         {anexosSalvos.map((a) => (
           <View key={`s${a.id}`} style={styles.anexo}>
             <Text style={styles.anexoNome} numberOfLines={1}>📄 {a.nome_arquivo}</Text>
@@ -364,4 +419,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   anexoNome: { flex: 1, color: cores.texto },
+  perguntaNota: {
+    backgroundColor: cores.chuvaClara,
+    borderWidth: 1,
+    borderColor: '#90caf9',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+  },
+  perguntaTexto: { color: cores.texto, fontSize: 14, lineHeight: 20 },
+  perguntaAviso: { color: cores.textoSecundario, fontSize: 12, marginTop: 4 },
+  perguntaBotoes: { flexDirection: 'row', gap: 8, marginTop: 10 },
 });
