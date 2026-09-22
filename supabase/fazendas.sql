@@ -488,7 +488,14 @@ select
   coalesce((
     select sum(p.milimetros) from public.pluviometria p
      where p.cultivo_id = c.id and p.deleted_at is null
-  ), 0)::float8 as total_chuva
+  ), 0)::float8 as total_chuva,
+  -- A despesa mais antiga do cultivo. Junto com a data de plantio, é o que
+  -- diz se a safra já começou: sem nenhuma das duas no passado, ela ainda
+  -- está por vir (filtro "Aguardando início" na tela de cultivos).
+  (
+    select min(m.data) from public.movimentacoes m
+     where m.cultivo_id = c.id and m.tipo = 'DESPESA' and m.deleted_at is null
+  ) as primeira_despesa
 from public.cultivos c
 where c.deleted_at is null;
 

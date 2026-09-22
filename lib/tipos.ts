@@ -27,7 +27,18 @@ export type CultivoResumo = Cultivo & {
   total_despesas: number;
   total_receitas: number;
   total_chuva: number;
+  // Data da despesa mais antiga (ISO), ou null se não houver nenhuma.
+  primeira_despesa: string | null;
 };
+
+// Uma safra que ainda não começou: nem o plantio nem a primeira despesa
+// chegaram. Serve para separar o que já está no chão do que só foi cadastrado.
+export function aguardandoInicio(c: Pick<CultivoResumo, 'data_plantio' | 'primeira_despesa' | 'finalizado'>): boolean {
+  if (c.finalizado) return false;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const comecou = [c.data_plantio, c.primeira_despesa].some((d) => !!d && d.slice(0, 10) <= hoje);
+  return !comecou;
+}
 
 export type CultivoInput = {
   // A fazenda dona do cultivo. Os filhos (despesas, chuvas, fotos) herdam a

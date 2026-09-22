@@ -5,7 +5,7 @@ import type { Cultivo, CultivoInput, CultivoResumo } from '@/lib/tipos';
 // Cultivos no celular: tudo sai do SQLite local, e o envio para o Supabase
 // acontece por trás (lib/sync.native.ts). Mesma interface de lib/cultivos.ts,
 // que é a versão da web — as telas não sabem em qual estão.
-export { HA_POR_ALQUEIRE, progressoCultivo } from '@/lib/tipos';
+export { aguardandoInicio, HA_POR_ALQUEIRE, progressoCultivo } from '@/lib/tipos';
 export type { Cultivo, CultivoInput, CultivoResumo } from '@/lib/tipos';
 
 type LinhaCultivo = Omit<Cultivo, 'finalizado'> & { finalizado: number };
@@ -17,7 +17,14 @@ function montar<T extends LinhaCultivo>(l: T): T & { finalizado: boolean } {
 // Os totais, que na web vêm da view cultivos_resumo, aqui são somados na hora.
 // São dezenas de linhas por cultivo, não milhares.
 export async function listCultivosResumo(fazendaId: string): Promise<CultivoResumo[]> {
-  const linhas = db.getAllSync<LinhaCultivo & { total_despesas: number; total_receitas: number; total_chuva: number }>(
+  const linhas = db.getAllSync<
+    LinhaCultivo & {
+      total_despesas: number;
+      total_receitas: number;
+      total_chuva: number;
+      primeira_despesa: string | null;
+    }
+  >(
     `select c.*,
             coalesce((select sum(i.quantidade * i.valor)
                         from movimentacoes m
@@ -30,7 +37,9 @@ export async function listCultivosResumo(fazendaId: string): Promise<CultivoResu
                        where m.cultivo_id = c.id and m.tipo = 'RECEITA'
                          and m.deleted_at is null and i.deleted_at is null), 0) as total_receitas,
             coalesce((select sum(p.milimetros) from pluviometria p
-                       where p.cultivo_id = c.id and p.deleted_at is null), 0) as total_chuva
+                       where p.cultivo_id = c.id and p.deleted_at is null), 0) as total_chuva,
+            (select min(m.data) from movimentacoes m
+              where m.cultivo_id = c.id and m.tipo = 'DESPESA' and m.deleted_at is null) as primeira_despesa
        from cultivos c
       where c.fazenda_id = ? and c.deleted_at is null
       order by case when c.data_plantio is null then 1 else 0 end, c.data_plantio, c.created_at desc`,

@@ -1,5 +1,11 @@
 import { BotaoConfirmar, Carregando, Chips, Mensagem, Vazio } from '@/components/ui';
-import { deleteCultivo, listCultivosResumo, progressoCultivo, type CultivoResumo } from '@/lib/cultivos';
+import {
+  aguardandoInicio,
+  deleteCultivo,
+  listCultivosResumo,
+  progressoCultivo,
+  type CultivoResumo,
+} from '@/lib/cultivos';
 import { moeda, quantidade } from '@/lib/formatar';
 import { normalize } from '@/lib/normalize';
 import { useFazenda } from '@/contexts/FazendaContext';
@@ -10,7 +16,11 @@ import { router, type Href } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-const FILTROS = ['Todos', 'Em andamento', 'Finalizados'] as const;
+// "Aguardando início" é a safra cadastrada que ainda não começou: nem a data
+// de plantio nem a primeira despesa chegaram (ver aguardandoInicio em
+// lib/tipos.ts). Ela também aparece em "Em andamento", que continua
+// significando "não finalizada".
+const FILTROS = ['Todos', 'Aguardando início', 'Em andamento', 'Finalizados'] as const;
 type Filtro = (typeof FILTROS)[number];
 
 export default function CultivosScreen() {
@@ -39,6 +49,7 @@ export default function CultivosScreen() {
     return (cultivos ?? []).filter((c) => {
       if (filtro === 'Em andamento' && c.finalizado) return false;
       if (filtro === 'Finalizados' && !c.finalizado) return false;
+      if (filtro === 'Aguardando início' && !aguardandoInicio(c)) return false;
       if (!termo) return true;
       return (
         normalize(c.nome_cultura).includes(termo) ||
@@ -52,6 +63,7 @@ export default function CultivosScreen() {
 
   const lista = cultivos ?? [];
   const ativos = lista.filter((c) => !c.finalizado).length;
+  const aguardando = lista.filter(aguardandoInicio).length;
   const hectares = lista.reduce((s, c) => s + c.area_hectares, 0);
 
   async function excluir(c: CultivoResumo) {
@@ -74,6 +86,7 @@ export default function CultivosScreen() {
             <View style={styles.stats}>
               <Stat valor={String(lista.length)} rotulo="Total" cor={cores.texto} />
               <Stat valor={String(ativos)} rotulo="Ativos" cor={cores.primaria} />
+              <Stat valor={String(aguardando)} rotulo="A iniciar" cor={cores.alerta} />
               <Stat valor={String(lista.length - ativos)} rotulo="Finalizados" cor={cores.chuva} />
               <Stat valor={quantidade(Math.round(hectares))} rotulo="Hectares" cor={cores.alerta} />
             </View>
@@ -95,7 +108,15 @@ export default function CultivosScreen() {
           lista.length === 0 ? (
             <Vazio icone="🌾" titulo="Nenhum cultivo cadastrado" subtitulo='Toque em "+ Novo cultivo" para começar.' />
           ) : (
-            <Vazio icone="🔍" titulo="Nenhum resultado" subtitulo="Ajuste a busca ou o filtro." />
+            <Vazio
+              icone={filtro === 'Aguardando início' ? '🌱' : '🔍'}
+              titulo={filtro === 'Aguardando início' ? 'Nenhuma safra esperando para começar' : 'Nenhum resultado'}
+              subtitulo={
+                filtro === 'Aguardando início'
+                  ? 'Todas as safras cadastradas já têm plantio ou despesa lançada.'
+                  : 'Ajuste a busca ou o filtro.'
+              }
+            />
           )
         }
         renderItem={({ item }) => <CartaoCultivo c={item} onExcluir={() => excluir(item)} />}
@@ -133,6 +154,7 @@ function CartaoCultivo({ c, onExcluir }: { c: CultivoResumo; onExcluir: () => vo
               {c.nome_cultura}
             </Text>
             {c.finalizado && <Text style={styles.badge}>FINALIZADO</Text>}
+            {aguardandoInicio(c) && <Text style={styles.badgeAguardando}>A INICIAR</Text>}
           </View>
           <Text style={styles.cardSub}>
             📅 {c.ano}   📍 {c.localidade}
@@ -219,9 +241,12 @@ function Acao({ texto, cor, fundo, onPress }: { texto: string; cor: string; fund
 
 const styles = StyleSheet.create({
   lista: { padding: 16, paddingBottom: 96, maxWidth: 900, width: '100%', alignSelf: 'center' },
-  stats: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  // Cinco números não cabem lado a lado num celular estreito: quebram linha.
+  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   stat: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '17%',
+    minWidth: 62,
     backgroundColor: '#fff',
     borderRadius: 10,
     borderWidth: 1,
@@ -230,7 +255,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValor: { fontSize: 20, fontWeight: '800' },
-  statRotulo: { fontSize: 11, color: cores.textoSecundario },
+  statRotulo: { fontSize: 11, color: cores.textoSecundario, textAlign: 'center' },
   busca: {
     backgroundColor: '#fff',
     borderWidth: 1,
@@ -257,6 +282,16 @@ const styles = StyleSheet.create({
   cardNome: { fontSize: 18, fontWeight: '800', color: cores.texto, flexShrink: 1 },
   badge: {
     backgroundColor: cores.primaria,
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  badgeAguardando: {
+    backgroundColor: cores.alerta,
     color: '#fff',
     fontSize: 10,
     fontWeight: '800',

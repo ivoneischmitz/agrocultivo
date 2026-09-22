@@ -3,7 +3,7 @@ import type { Cultivo, CultivoInput, CultivoResumo } from '@/lib/tipos';
 
 // Versão web: fala direto com o Supabase. O celular usa cultivos.native.ts,
 // que lê e grava no SQLite do aparelho — as duas expõem a mesma interface.
-export { HA_POR_ALQUEIRE, progressoCultivo } from '@/lib/tipos';
+export { aguardandoInicio, HA_POR_ALQUEIRE, progressoCultivo } from '@/lib/tipos';
 export type { Cultivo, CultivoInput, CultivoResumo } from '@/lib/tipos';
 
 // O Postgres devolve numeric como string pelo PostgREST; converte uma vez aqui
