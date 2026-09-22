@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import * as SQLite from 'expo-sqlite';
 
 // Cópia local dos dados, no celular.
@@ -263,13 +264,11 @@ export function limparTudo(): void {
 
 // Identificador criado no aparelho, para a linha existir antes de haver rede.
 // É o motivo de as chaves do banco serem uuid (ver supabase/fazendas.sql).
+//
+// Vem do expo-crypto, e não do `crypto` global: no React Native esse objeto
+// não existe, e usá-lo derrubava qualquer lançamento no celular.
 export function novoId(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  return Crypto.randomUUID();
 }
 
 export function agora(): string {

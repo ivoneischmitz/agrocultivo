@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 import { fazendasGuardadas, guardarFazendas } from '@/lib/fazendasCache';
 import { supabase } from '@/lib/supabase';
 import { Platform } from 'react-native';
@@ -96,11 +97,11 @@ export async function removerMembro(fazendaId: string, userId: string): Promise<
 
 // ── Convites ─────────────────────────────────────────────────────────────────
 
-// O código do link é sorteado aqui, com o gerador do próprio sistema, e tem
-// 256 bits: longo demais para alguém adivinhar por tentativa.
+// O código do link é sorteado pelo expo-crypto (o `crypto` global não existe
+// no React Native) e tem 256 bits: longo demais para alguém adivinhar por
+// tentativa.
 function novoToken(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
+  const bytes = Crypto.getRandomBytes(32);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
