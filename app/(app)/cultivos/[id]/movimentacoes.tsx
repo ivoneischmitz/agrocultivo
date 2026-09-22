@@ -13,6 +13,7 @@ import {
 } from '@/lib/movimentacoes';
 import { cores } from '@/lib/tema';
 import { useCultivo } from '@/lib/useCultivo';
+import { useVersaoDados } from '@/lib/useVersaoDados';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { router, Stack, useLocalSearchParams, type Href } from 'expo-router';
 import { useState } from 'react';
@@ -37,7 +38,7 @@ export default function MovimentacoesScreen() {
       })
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar.'));
   }
-  useRecarregarAoFocar(carregar);
+  useRecarregarAoFocar(carregar, useVersaoDados());
 
   async function excluir(m: Movimentacao) {
     try {

@@ -3,6 +3,7 @@ import { alertaClima, buscarClima, descricaoClima, iconeClima, type Clima } from
 import { listCultivosResumo, type CultivoResumo } from '@/lib/cultivos';
 import { moeda } from '@/lib/formatar';
 import { useFazenda } from '@/contexts/FazendaContext';
+import { useVersaoDados } from '@/lib/useVersaoDados';
 import { cores } from '@/lib/tema';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { router } from 'expo-router';
@@ -23,6 +24,8 @@ export default function InicioScreen() {
   const [climaCarregando, setClimaCarregando] = useState(true);
   const [cultivos, setCultivos] = useState<CultivoResumo[] | null>(null);
   const { fazendaId } = useFazenda();
+  // Muda quando a sincronização traz algo: faz a tela reler sem trocar de aba.
+  const versao = useVersaoDados();
 
   useEffect(() => {
     buscarClima()
@@ -36,7 +39,7 @@ export default function InicioScreen() {
     listCultivosResumo(fazendaId)
       .then(setCultivos)
       .catch(() => setCultivos([]));
-  }, fazendaId);
+  }, `${fazendaId}:${versao}`);
 
   const alerta = clima ? alertaClima(clima) : null;
   const ativos = (cultivos ?? []).filter((c) => !c.finalizado);

@@ -3,6 +3,7 @@ import { deleteCultivo, listCultivosResumo, progressoCultivo, type CultivoResumo
 import { moeda, quantidade } from '@/lib/formatar';
 import { normalize } from '@/lib/normalize';
 import { useFazenda } from '@/contexts/FazendaContext';
+import { useVersaoDados } from '@/lib/useVersaoDados';
 import { cores } from '@/lib/tema';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { router, type Href } from 'expo-router';
@@ -15,6 +16,8 @@ type Filtro = (typeof FILTROS)[number];
 export default function CultivosScreen() {
   const [cultivos, setCultivos] = useState<CultivoResumo[] | null>(null);
   const { fazendaId } = useFazenda();
+  // Muda quando a sincronização traz algo: faz a tela reler sem trocar de aba.
+  const versao = useVersaoDados();
   const [erro, setErro] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>('Todos');
   const [busca, setBusca] = useState('');
@@ -29,7 +32,7 @@ export default function CultivosScreen() {
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar cultivos.'));
   }
 
-  useRecarregarAoFocar(carregar, fazendaId);
+  useRecarregarAoFocar(carregar, `${fazendaId}:${versao}`);
 
   const filtrados = useMemo(() => {
     const termo = normalize(busca.trim());

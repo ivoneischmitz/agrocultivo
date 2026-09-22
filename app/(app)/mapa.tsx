@@ -4,6 +4,7 @@ import { posicaoAtual } from '@/lib/clima';
 import { listCultivosResumo, type CultivoResumo } from '@/lib/cultivos';
 import type { Marcador } from '@/lib/mapaHtml';
 import { useFazenda } from '@/contexts/FazendaContext';
+import { useVersaoDados } from '@/lib/useVersaoDados';
 import { cores } from '@/lib/tema';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { useMemo, useRef, useState } from 'react';
@@ -14,6 +15,8 @@ export default function MapaScreen() {
   const mapa = useRef<MapaLeafletRef>(null);
   const [cultivos, setCultivos] = useState<CultivoResumo[] | null>(null);
   const { fazendaId } = useFazenda();
+  // Muda quando a sincronização traz algo: faz a tela reler sem trocar de aba.
+  const versao = useVersaoDados();
   const [erro, setErro] = useState<string | null>(null);
 
   useRecarregarAoFocar(() => {
@@ -21,7 +24,7 @@ export default function MapaScreen() {
     listCultivosResumo(fazendaId)
       .then((l) => setCultivos(l.filter((c) => !c.finalizado)))
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar.'));
-  }, fazendaId);
+  }, `${fazendaId}:${versao}`);
 
   // A identidade do array decide quando o mapa recarrega (ver MapaLeaflet),
   // então só muda quando os pontos mudam de verdade.

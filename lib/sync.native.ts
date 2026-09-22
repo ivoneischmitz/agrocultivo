@@ -28,22 +28,25 @@ import { supabase } from '@/lib/supabase';
 
 export type EstadoSync = 'parado' | 'sincronizando' | 'erro';
 
-type Ouvinte = (estado: EstadoSync, pendentes: number) => void;
+// versao muda a cada sincronização que traz algo: é o sinal para as telas
+// relerem. Sem ele, quem abre o app vê a cópia antiga até trocar de aba.
+type Ouvinte = (estado: EstadoSync, pendentes: number, versao: number) => void;
 
 const ouvintes = new Set<Ouvinte>();
 let estado: EstadoSync = 'parado';
+let versao = 0;
 let rodando: Promise<void> | null = null;
 
 export function ouvirSync(fn: Ouvinte): () => void {
   ouvintes.add(fn);
-  fn(estado, totalPendente());
+  fn(estado, totalPendente(), versao);
   return () => ouvintes.delete(fn);
 }
 
 function avisar(novo: EstadoSync) {
   estado = novo;
   const pendentes = totalPendente();
-  for (const fn of ouvintes) fn(novo, pendentes);
+  for (const fn of ouvintes) fn(novo, pendentes, versao);
 }
 
 // ── Subir ────────────────────────────────────────────────────────────────────
@@ -153,6 +156,7 @@ function paraLocal(tabela: string, linha: Record<string, unknown>): LinhaSync {
 }
 
 async function baixar(fazendaId: string): Promise<void> {
+  let trouxe = 0;
   for (const t of TABELAS) {
     const desde = ultimaBusca(t.nome);
     // Uma folga de um minuto cobre a diferença de relógio entre o servidor e o
@@ -172,8 +176,10 @@ async function baixar(fazendaId: string): Promise<void> {
     // Aparece no log do aparelho (adb logcat). Sem isso, uma sincronização que
     // não traz nada é indistinguível de uma que não rodou.
     console.log(`sync baixou ${(data ?? []).length} de ${t.nome} (desde ${desde ?? 'sempre'})`);
+    trouxe += (data ?? []).length;
     anotarBusca(t.nome, inicio);
   }
+  if (trouxe > 0) versao++;
 }
 
 // ── Principal ────────────────────────────────────────────────────────────────

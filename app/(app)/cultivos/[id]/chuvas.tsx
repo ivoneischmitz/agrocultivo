@@ -12,6 +12,7 @@ import {
 } from '@/lib/pluviometria';
 import { cores } from '@/lib/tema';
 import { useCultivo } from '@/lib/useCultivo';
+import { useVersaoDados } from '@/lib/useVersaoDados';
 import { usePaddingInferior } from '@/lib/usePaddingInferior';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { useState } from 'react';
@@ -30,7 +31,7 @@ export default function ChuvasScreen() {
       .then(setRegistros)
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar.'));
   }
-  useRecarregarAoFocar(carregar);
+  useRecarregarAoFocar(carregar, useVersaoDados());
 
   const temGps = cultivo?.latitude != null && cultivo?.longitude != null;
   const total = (registros ?? []).reduce((s, r) => s + r.milimetros, 0);

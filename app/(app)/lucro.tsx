@@ -3,6 +3,7 @@ import { HA_POR_ALQUEIRE, listCultivosResumo, type CultivoResumo } from '@/lib/c
 import { moeda } from '@/lib/formatar';
 import { despesasPorCategoria } from '@/lib/movimentacoes';
 import { useFazenda } from '@/contexts/FazendaContext';
+import { useVersaoDados } from '@/lib/useVersaoDados';
 import { cores } from '@/lib/tema';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { useEffect, useMemo, useState } from 'react';
@@ -17,6 +18,8 @@ type Filtro = (typeof FILTROS)[number];
 export default function LucroScreen() {
   const [todos, setTodos] = useState<CultivoResumo[] | null>(null);
   const { fazendaId } = useFazenda();
+  // Muda quando a sincronização traz algo: faz a tela reler sem trocar de aba.
+  const versao = useVersaoDados();
   const [categorias, setCategorias] = useState<{ categoria: string; total: number }[]>([]);
   const [filtro, setFiltro] = useState<Filtro>('Todos');
   const [erro, setErro] = useState<string | null>(null);
@@ -26,7 +29,7 @@ export default function LucroScreen() {
     listCultivosResumo(fazendaId)
       .then(setTodos)
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar.'));
-  }, fazendaId);
+  }, `${fazendaId}:${versao}`);
 
   const lista = useMemo(
     () =>
