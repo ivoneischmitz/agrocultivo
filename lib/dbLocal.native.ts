@@ -210,6 +210,20 @@ export function totalPendente(): number {
   return linha?.total ?? 0;
 }
 
+// Esquece até onde cada tabela foi buscada, para a próxima sincronização
+// trazer tudo de novo. Serve de conserto quando a cópia local fica capenga.
+export function esquecerBuscas(): void {
+  db.execSync('delete from sync_estado');
+}
+
+// Quantas linhas há de cada tabela aqui — só para o log de diagnóstico.
+export function contagens(): string {
+  const tabelas = ['cultivos', 'movimentacoes', 'movimentacao_itens', 'pluviometria', 'fotos_cultivo'];
+  return tabelas
+    .map((t) => `${t}=${db.getFirstSync<{ n: number }>(`select count(*) as n from ${t}`)?.n ?? 0}`)
+    .join(' ');
+}
+
 // Ao trocar de conta, o que está no aparelho é de outra pessoa.
 export function limparTudo(): void {
   db.execSync(`

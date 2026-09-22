@@ -11,6 +11,8 @@ export const TEM_COPIA_LOCAL = false;
 
 export async function sincronizar(_fazendaId: string | null): Promise<void> {}
 
+export async function ressincronizarTudo(_fazendaId: string | null): Promise<void> {}
+
 export function ouvirSync(fn: (estado: EstadoSync, pendentes: number) => void): () => void {
   fn('parado', 0);
   return () => {};

@@ -7,7 +7,7 @@
 import { limparTudo } from '@/lib/dbLocal.native';
 
 export type { EstadoSync } from '@/lib/sync.native';
-export { ouvirSync, sincronizar } from '@/lib/sync.native';
+export { ouvirSync, ressincronizarTudo, sincronizar } from '@/lib/sync.native';
 
 export const TEM_COPIA_LOCAL = true;
 

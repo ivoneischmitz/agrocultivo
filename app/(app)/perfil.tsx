@@ -21,6 +21,7 @@ import {
 import { formatDataBR } from '@/lib/data';
 import { getPerfil, listMunicipios, salvarPerfil, type Perfil } from '@/lib/perfil';
 import { cores } from '@/lib/tema';
+import { ressincronizarTudo, TEM_COPIA_LOCAL } from '@/lib/syncPonte';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
@@ -54,6 +55,7 @@ export default function PerfilScreen() {
           <Membros key={`membros-${fazenda.id}`} fazenda={fazenda} aoMudar={recarregar} />
         </>
       )}
+      <CopiaLocal />
       <IndicarApp />
       <Sobre />
       <ExcluirConta />
@@ -378,6 +380,48 @@ function IndicarApp() {
       <Text style={styles.linkTexto} selectable>
         {link}
       </Text>
+    </Cartao>
+  );
+}
+
+// Só no celular, onde existe cópia local dos dados.
+//
+// A sincronização normal pede "o que mudou desde a última vez". Se por algum
+// motivo a cópia ficar incompleta, o marcador já terá avançado e ela nunca
+// mais traria o que faltou — este botão zera esse marcador e baixa tudo de
+// novo. Nada é perdido: o que está pendente sobe antes.
+function CopiaLocal() {
+  const { fazendaId } = useFazenda();
+  const [baixando, setBaixando] = useState(false);
+  const [ok, setOk] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  if (!TEM_COPIA_LOCAL) return null;
+
+  async function baixarTudo() {
+    setErro(null);
+    setOk(null);
+    setBaixando(true);
+    try {
+      await ressincronizarTudo(fazendaId);
+      setOk('Dados atualizados neste aparelho.');
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível atualizar.');
+    } finally {
+      setBaixando(false);
+    }
+  }
+
+  return (
+    <Cartao>
+      <Text style={styles.secao}>📶 Dados neste aparelho</Text>
+      <Text style={styles.aviso}>
+        O app guarda uma cópia no celular para funcionar sem sinal. Se algo parecer faltando, baixe
+        tudo de novo — o que você lançou sem internet sobe antes, nada se perde.
+      </Text>
+      <Mensagem texto={erro} />
+      <Mensagem texto={ok} tipo="sucesso" />
+      <Botao titulo="Baixar tudo de novo" contorno carregando={baixando} onPress={baixarTudo} style={{ marginTop: 10 }} />
     </Cartao>
   );
 }

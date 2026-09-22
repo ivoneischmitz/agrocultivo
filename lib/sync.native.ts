@@ -1,7 +1,9 @@
 import {
   agora,
   anotarBusca,
+  contagens,
   db,
+  esquecerBuscas,
   guardarDoServidor,
   marcarEnviado,
   totalPendente,
@@ -188,6 +190,7 @@ export function sincronizar(fazendaId: string | null): Promise<void> {
       await subirMovimentacoes();
       await subirChuvas();
       await baixar(fazendaId);
+      console.log('sync terminou. cópia local:', contagens());
       avisar('parado');
     } catch (e) {
       // Sem rede é o caso comum, e não é erro: o pendente continua no aparelho
@@ -204,6 +207,14 @@ export function sincronizar(fazendaId: string | null): Promise<void> {
   })();
 
   return rodando;
+}
+
+// Baixa tudo de novo, do zero. O marcador de "até onde já busquei" avança por
+// tabela; se uma delas ficar para trás por qualquer motivo, a sincronização
+// normal nunca mais a traz, porque só pede o que mudou desde então.
+export async function ressincronizarTudo(fazendaId: string | null): Promise<void> {
+  esquecerBuscas();
+  await sincronizar(fazendaId);
 }
 
 // Chamada depois de cada gravação local. Não espera terminar: a tela já tem o
