@@ -88,6 +88,11 @@ export default function FotosScreen() {
         renderItem={({ item }) => (
           <Pressable onPress={() => setAberta(item)} style={{ marginBottom: 6 }}>
             <Image source={{ uri: item.url }} style={{ width: lado, height: lado, borderRadius: 6, backgroundColor: '#e0e0e0' }} />
+            {item.pendente && (
+              <Text style={styles.selo} accessibilityLabel="Foto ainda no aparelho, sobe quando houver internet">
+                ⏳ no aparelho
+              </Text>
+            )}
           </Pressable>
         )}
       />
@@ -126,6 +131,19 @@ export default function FotosScreen() {
 const styles = StyleSheet.create({
   lista: { padding: 16, maxWidth: 900, width: '100%', alignSelf: 'center' },
   sub: { color: cores.textoSecundario, marginBottom: 10 },
+  selo: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    right: 4,
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '700',
+    textAlign: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 4,
+    paddingVertical: 2,
+  },
   rodape: { flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: cores.borda, backgroundColor: '#fff' },
   modal: { flex: 1, backgroundColor: '#000' },
   fechar: { padding: 16, paddingTop: 40 },

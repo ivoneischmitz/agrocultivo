@@ -80,7 +80,10 @@ db.execSync(`
     nome_arquivo text not null,
     tipo_arquivo text,
     updated_at text,
-    deleted_at text
+    deleted_at text,
+    -- Arquivo ainda no aparelho, esperando internet para subir.
+    uri_local text,
+    pendente integer not null default 0
   );
 
   create table if not exists pluviometria (
@@ -104,7 +107,10 @@ db.execSync(`
     comentario text,
     data text,
     updated_at text,
-    deleted_at text
+    deleted_at text,
+    -- Foto tirada sem sinal: fica aqui e sobe depois.
+    uri_local text,
+    pendente integer not null default 0
   );
 
   create table if not exists fazendas (
@@ -130,6 +136,21 @@ db.execSync(`
   create index if not exists chuva_cultivo on pluviometria (cultivo_id);
   create index if not exists fotos_cultivo_idx on fotos_cultivo (cultivo_id);
 `);
+
+// Quem já usava o app tem as tabelas sem estas colunas; o SQLite não aceita
+// "add column if not exists", então a falha de "já existe" é esperada.
+for (const alteracao of [
+  'alter table fotos_cultivo add column uri_local text',
+  'alter table fotos_cultivo add column pendente integer not null default 0',
+  'alter table movimentacao_anexos add column uri_local text',
+  'alter table movimentacao_anexos add column pendente integer not null default 0',
+]) {
+  try {
+    db.execSync(alteracao);
+  } catch {
+    // coluna já existe
+  }
+}
 
 export { db };
 
@@ -205,7 +226,9 @@ export function totalPendente(): number {
     select
       (select count(*) from cultivos where pendente = 1) +
       (select count(*) from movimentacoes where pendente = 1) +
-      (select count(*) from pluviometria where pendente = 1) as total
+      (select count(*) from pluviometria where pendente = 1) +
+      (select count(*) from fotos_cultivo where pendente = 1) +
+      (select count(*) from movimentacao_anexos where pendente = 1) as total
   `);
   return linha?.total ?? 0;
 }

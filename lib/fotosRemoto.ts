@@ -17,6 +17,8 @@ export type Foto = {
   url: string;
   comentario: string | null;
   data: string;
+  // No celular, true enquanto a foto está só no aparelho. Na web nunca.
+  pendente?: boolean;
 };
 
 export async function enviarFotoRemota(

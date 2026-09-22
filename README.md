@@ -126,7 +126,9 @@ O plano é a web continuar só online e o aplicativo do celular guardar os dados
 - **`updated_at` em toda tabela**, mexido por gatilho: é assim que o aparelho pede "o que mudou desde a última vez" em vez de baixar tudo.
 - **Exclusão marcada em `deleted_at`**, nunca apagada: linha que some do Postgres é invisível para um aparelho offline e voltaria na próxima subida.
 
-Falta a camada local no celular (SQLite + fila de envio), seguindo o mesmo padrão de arquivo por plataforma que o mapa já usa (`MapaLeaflet.tsx` / `MapaLeaflet.web.tsx`).
+A camada local no celular está feita: `lib/dbLocal.native.ts` guarda a cópia, `lib/sync.native.ts` sobe o pendente e baixa o que mudou, e cada arquivo `*.native.ts` em `lib/` é a versão do celular da mesma interface que a web usa.
+
+Fotos e anexos também esperam no aparelho: o arquivo é copiado para uma pasta nossa (`lib/arquivosLocais.native.ts`), a linha nasce com `pendente = 1`, e a tela mostra ⏳ até subir.
 
 Clima, chuva por satélite, municípios e mapa dependem de rede em qualquer cenário.
 

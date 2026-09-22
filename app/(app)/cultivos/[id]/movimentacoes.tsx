@@ -129,7 +129,7 @@ export default function MovimentacoesScreen() {
                   {m.anexos.map((a) => (
                     <Pressable key={a.id} style={styles.anexo} onPress={() => abrirAnexo(a)}>
                       <Text style={styles.anexoTexto} numberOfLines={1}>
-                        📄 {a.nome_arquivo}
+                        {a.storage_path ? '📄' : '⏳'} {a.nome_arquivo}
                       </Text>
                     </Pressable>
                   ))}

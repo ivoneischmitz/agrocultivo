@@ -10,6 +10,8 @@ import {
   ultimaBusca,
   type LinhaSync,
 } from '@/lib/dbLocal.native';
+import { apagarArquivo } from '@/lib/arquivosLocais.native';
+import { lerBytes } from '@/lib/arquivos';
 import { supabase } from '@/lib/supabase';
 
 // Sincronização entre a cópia local (lib/dbLocal.native.ts) e o Supabase.
@@ -129,6 +131,77 @@ async function subirChuvas(): Promise<void> {
   }
 }
 
+// Fotos e anexos tirados/escolhidos sem sinal: o arquivo está no aparelho e
+// sobe agora. Vão depois das movimentações porque um anexo precisa que a
+// despesa dele já exista no servidor.
+async function subirArquivos(): Promise<void> {
+  const fotos = db.getAllSync<Record<string, unknown>>(
+    'select * from fotos_cultivo where pendente = 1 and deleted_at is null',
+  );
+  for (const f of fotos) {
+    const local = f.uri_local as string;
+    const ext = local.split('.').pop() || 'jpg';
+    const caminho = `${f.fazenda_id}/${f.id}.${ext}`;
+    const bytes = await lerBytes(local);
+
+    const { error: erroUpload } = await supabase.storage.from('fotos-cultivo').upload(caminho, bytes, {
+      contentType: ext === 'png' ? 'image/png' : 'image/jpeg',
+      upsert: true,
+    });
+    if (erroUpload) throw erroUpload;
+
+    const { data: pub } = supabase.storage.from('fotos-cultivo').getPublicUrl(caminho);
+    const { error } = await supabase.from('fotos_cultivo').upsert({
+      id: f.id,
+      cultivo_id: f.cultivo_id,
+      storage_path: caminho,
+      url: pub.publicUrl,
+      data: f.data,
+    });
+    if (error) throw error;
+
+    db.runSync(
+      'update fotos_cultivo set storage_path = ?, url = ?, pendente = 0, uri_local = null where id = ?',
+      caminho,
+      pub.publicUrl,
+      f.id as string,
+    );
+    apagarArquivo(local);
+  }
+
+  const anexos = db.getAllSync<Record<string, unknown>>(
+    'select * from movimentacao_anexos where pendente = 1 and deleted_at is null',
+  );
+  for (const a of anexos) {
+    const local = a.uri_local as string;
+    const nome = String(a.nome_arquivo).replace(/[^a-zA-Z0-9._-]/g, '_');
+    const caminho = `${a.fazenda_id}/${a.movimentacao_id}/${a.id}_${nome}`;
+    const bytes = await lerBytes(local);
+
+    const { error: erroUpload } = await supabase.storage.from('anexos').upload(caminho, bytes, {
+      contentType: (a.tipo_arquivo as string) ?? 'application/octet-stream',
+      upsert: true,
+    });
+    if (erroUpload) throw erroUpload;
+
+    const { error } = await supabase.from('movimentacao_anexos').upsert({
+      id: a.id,
+      movimentacao_id: a.movimentacao_id,
+      storage_path: caminho,
+      nome_arquivo: a.nome_arquivo,
+      tipo_arquivo: a.tipo_arquivo,
+    });
+    if (error) throw error;
+
+    db.runSync(
+      'update movimentacao_anexos set storage_path = ?, pendente = 0, uri_local = null where id = ?',
+      caminho,
+      a.id as string,
+    );
+    apagarArquivo(local);
+  }
+}
+
 // ── Baixar ───────────────────────────────────────────────────────────────────
 
 // Tabelas trazidas do servidor. `pendente` diz quais podem ter alteração local
@@ -138,9 +211,9 @@ const TABELAS: { nome: string; colunas: string; pendente: boolean }[] = [
   { nome: 'cultivos', colunas: '*', pendente: true },
   { nome: 'movimentacoes', colunas: '*', pendente: true },
   { nome: 'movimentacao_itens', colunas: '*', pendente: false },
-  { nome: 'movimentacao_anexos', colunas: '*', pendente: false },
+  { nome: 'movimentacao_anexos', colunas: '*', pendente: true },
   { nome: 'pluviometria', colunas: '*', pendente: true },
-  { nome: 'fotos_cultivo', colunas: '*', pendente: false },
+  { nome: 'fotos_cultivo', colunas: '*', pendente: true },
 ];
 
 // Colunas que só existem de um lado; o resto atravessa igual.
@@ -195,6 +268,7 @@ export function sincronizar(fazendaId: string | null): Promise<void> {
       await subirCultivos();
       await subirMovimentacoes();
       await subirChuvas();
+      await subirArquivos();
       await baixar(fazendaId);
       console.log('sync terminou. cópia local:', contagens());
       avisar('parado');
