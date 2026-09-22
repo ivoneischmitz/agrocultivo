@@ -167,6 +167,9 @@ async function baixar(fazendaId: string): Promise<void> {
     for (const linha of (data ?? []) as unknown as Record<string, unknown>[]) {
       guardarDoServidor(t.nome, paraLocal(t.nome, linha), t.pendente);
     }
+    // Aparece no log do aparelho (adb logcat). Sem isso, uma sincronização que
+    // não traz nada é indistinguível de uma que não rodou.
+    console.log(`sync baixou ${(data ?? []).length} de ${t.nome} (desde ${desde ?? 'sempre'})`);
     anotarBusca(t.nome, inicio);
   }
 }
@@ -190,9 +193,11 @@ export function sincronizar(fazendaId: string | null): Promise<void> {
       // Sem rede é o caso comum, e não é erro: o pendente continua no aparelho
       // e sobe na próxima. Só marca erro quando o servidor recusou.
       const msg = e instanceof Error ? e.message : String(e);
-      const semRede = /Network request failed|Failed to fetch|fetch/i.test(msg);
+      // Só "sem rede" mesmo: um texto qualquer que contivesse "fetch" estava
+      // sendo tratado como falta de sinal e sumia sem deixar rastro.
+      const semRede = /Network request failed|Failed to fetch|Load failed|network/i.test(msg);
       avisar(semRede ? 'parado' : 'erro');
-      if (!semRede) console.log('Falha ao sincronizar:', msg);
+      console.log(semRede ? 'sync adiado (sem rede):' : 'sync falhou:', msg);
     } finally {
       rodando = null;
     }
