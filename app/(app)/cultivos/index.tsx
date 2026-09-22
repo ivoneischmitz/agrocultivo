@@ -16,10 +16,9 @@ import { router, type Href } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-// "Aguardando início" é a safra cadastrada que ainda não começou: nem a data
-// de plantio nem a primeira despesa chegaram (ver aguardandoInicio em
-// lib/tipos.ts). Ela também aparece em "Em andamento", que continua
-// significando "não finalizada".
+// Três situações que não se misturam: a safra que ainda não começou (nem
+// plantio nem despesa até hoje — ver aguardandoInicio em lib/tipos.ts), a que
+// está no chão e a que já foi colhida.
 const FILTROS = ['Todos', 'Aguardando início', 'Em andamento', 'Finalizados'] as const;
 type Filtro = (typeof FILTROS)[number];
 
@@ -47,7 +46,7 @@ export default function CultivosScreen() {
   const filtrados = useMemo(() => {
     const termo = normalize(busca.trim());
     return (cultivos ?? []).filter((c) => {
-      if (filtro === 'Em andamento' && c.finalizado) return false;
+      if (filtro === 'Em andamento' && (c.finalizado || aguardandoInicio(c))) return false;
       if (filtro === 'Finalizados' && !c.finalizado) return false;
       if (filtro === 'Aguardando início' && !aguardandoInicio(c)) return false;
       if (!termo) return true;
@@ -62,8 +61,10 @@ export default function CultivosScreen() {
   if (cultivos === null && !erro) return <Carregando />;
 
   const lista = cultivos ?? [];
-  const ativos = lista.filter((c) => !c.finalizado).length;
   const aguardando = lista.filter(aguardandoInicio).length;
+  // "Ativos" conta o que está mesmo em andamento, para o número bater com a
+  // lista que o filtro mostra.
+  const ativos = lista.filter((c) => !c.finalizado && !aguardandoInicio(c)).length;
   const hectares = lista.reduce((s, c) => s + c.area_hectares, 0);
 
   async function excluir(c: CultivoResumo) {
@@ -87,7 +88,7 @@ export default function CultivosScreen() {
               <Stat valor={String(lista.length)} rotulo="Total" cor={cores.texto} />
               <Stat valor={String(ativos)} rotulo="Ativos" cor={cores.primaria} />
               <Stat valor={String(aguardando)} rotulo="A iniciar" cor={cores.alerta} />
-              <Stat valor={String(lista.length - ativos)} rotulo="Finalizados" cor={cores.chuva} />
+              <Stat valor={String(lista.filter((c) => c.finalizado).length)} rotulo="Finalizados" cor={cores.chuva} />
               <Stat valor={quantidade(Math.round(hectares))} rotulo="Hectares" cor={cores.alerta} />
             </View>
             <TextInput
