@@ -12,7 +12,10 @@ import { useCallback, useEffect, useRef } from 'react';
 // telas de filtro (que reconstroem a sua a cada tecla digitada) dispararia uma
 // consulta por tecla, que foi justamente o motivo de elas terem nascido com
 // dependências vazias.
-export function useRecarregarAoFocar(recarregar: () => void) {
+// `chave` faz recarregar também quando ela muda com a tela já aberta. É o caso
+// da fazenda: o contexto a descobre depois do primeiro desenho, e sem isso a
+// tela ficaria esperando para sempre, porque o foco não muda mais.
+export function useRecarregarAoFocar(recarregar: () => void, chave?: unknown) {
   const ref = useRef(recarregar);
 
   useEffect(() => {
@@ -22,6 +25,6 @@ export function useRecarregarAoFocar(recarregar: () => void) {
   useFocusEffect(
     useCallback(() => {
       ref.current();
-    }, []),
+    }, [chave]),
   );
 }

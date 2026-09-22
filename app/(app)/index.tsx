@@ -36,7 +36,7 @@ export default function InicioScreen() {
     listCultivosResumo(fazendaId)
       .then(setCultivos)
       .catch(() => setCultivos([]));
-  });
+  }, fazendaId);
 
   const alerta = clima ? alertaClima(clima) : null;
   const ativos = (cultivos ?? []).filter((c) => !c.finalizado);

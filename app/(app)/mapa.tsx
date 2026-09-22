@@ -21,7 +21,7 @@ export default function MapaScreen() {
     listCultivosResumo(fazendaId)
       .then((l) => setCultivos(l.filter((c) => !c.finalizado)))
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar.'));
-  });
+  }, fazendaId);
 
   // A identidade do array decide quando o mapa recarrega (ver MapaLeaflet),
   // então só muda quando os pontos mudam de verdade.

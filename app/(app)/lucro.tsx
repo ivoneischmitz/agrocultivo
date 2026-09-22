@@ -26,7 +26,7 @@ export default function LucroScreen() {
     listCultivosResumo(fazendaId)
       .then(setTodos)
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar.'));
-  });
+  }, fazendaId);
 
   const lista = useMemo(
     () =>

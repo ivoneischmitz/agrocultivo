@@ -29,7 +29,7 @@ export default function CultivosScreen() {
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar cultivos.'));
   }
 
-  useRecarregarAoFocar(carregar);
+  useRecarregarAoFocar(carregar, fazendaId);
 
   const filtrados = useMemo(() => {
     const termo = normalize(busca.trim());

@@ -135,6 +135,23 @@ export { db };
 
 export type LinhaSync = Record<string, unknown> & { id: string };
 
+// Colunas que cada tabela local tem de verdade.
+//
+// O servidor manda mais coisas do que a cópia local guarda — user_id, por
+// exemplo, que aqui não serve para nada, já que o aparelho só tem os dados de
+// uma conta. Sem este filtro, a gravação quebrava com "table X has no column
+// named Y", e um campo novo no Postgres derrubaria a sincronização de novo.
+const colunasPorTabela = new Map<string, Set<string>>();
+
+function colunasDe(tabela: string): Set<string> {
+  const guardado = colunasPorTabela.get(tabela);
+  if (guardado) return guardado;
+  const linhas = db.getAllSync<{ name: string }>(`pragma table_info(${tabela})`);
+  const nomes = new Set(linhas.map((l) => l.name));
+  colunasPorTabela.set(tabela, nomes);
+  return nomes;
+}
+
 // Grava a linha que veio do servidor sem passar por cima de alteração local
 // ainda não enviada: se pendente = 1, o que vale é o daqui até subir.
 export function guardarDoServidor(tabela: string, linha: LinhaSync, temPendente: boolean): void {
@@ -146,7 +163,8 @@ export function guardarDoServidor(tabela: string, linha: LinhaSync, temPendente:
     if (atual?.pendente === 1) return;
   }
 
-  const colunas = Object.keys(linha);
+  const conhecidas = colunasDe(tabela);
+  const colunas = Object.keys(linha).filter((c) => conhecidas.has(c));
   const valores = colunas.map((c) => {
     const v = linha[c];
     if (typeof v === 'boolean') return v ? 1 : 0;
