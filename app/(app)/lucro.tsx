@@ -1,5 +1,5 @@
 import { BarraHorizontal, Cartao, Carregando, Chips, Mensagem, Vazio } from '@/components/ui';
-import { HA_POR_ALQUEIRE, listCultivosResumo, type CultivoResumo } from '@/lib/cultivos';
+import { aguardandoInicio, HA_POR_ALQUEIRE, listCultivosResumo, type CultivoResumo } from '@/lib/cultivos';
 import { moeda } from '@/lib/formatar';
 import { despesasPorCategoria } from '@/lib/movimentacoes';
 import { useFazenda } from '@/contexts/FazendaContext';
@@ -9,7 +9,9 @@ import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-const FILTROS = ['Todos', 'Em andamento', 'Finalizados'] as const;
+// Mesmas situações da lista de cultivos, e pelo mesmo motivo: 'Em andamento'
+// é o que está no chão, não tudo que ainda não foi colhido.
+const FILTROS = ['Todos', 'Aguardando início', 'Em andamento', 'Finalizados'] as const;
 type Filtro = (typeof FILTROS)[number];
 
 // Resumo financeiro da fazenda. Era recurso Pro no app antigo; agora é para
@@ -33,9 +35,12 @@ export default function LucroScreen() {
 
   const lista = useMemo(
     () =>
-      (todos ?? []).filter((c) =>
-        filtro === 'Em andamento' ? !c.finalizado : filtro === 'Finalizados' ? c.finalizado : true,
-      ),
+      (todos ?? []).filter((c) => {
+        if (filtro === 'Em andamento') return !c.finalizado && !aguardandoInicio(c);
+        if (filtro === 'Finalizados') return c.finalizado;
+        if (filtro === 'Aguardando início') return aguardandoInicio(c);
+        return true;
+      }),
     [todos, filtro],
   );
 
@@ -55,7 +60,8 @@ export default function LucroScreen() {
 
   if (todos === null && !erro) return <Carregando />;
 
-  const emAndamento = (todos ?? []).filter((c) => !c.finalizado).length;
+  const emAndamento = (todos ?? []).filter((c) => !c.finalizado && !aguardandoInicio(c)).length;
+  const aguardando = (todos ?? []).filter(aguardandoInicio).length;
   const despesas = lista.reduce((s, c) => s + c.total_despesas, 0);
   const receitas = lista.reduce((s, c) => s + c.total_receitas, 0);
   const lucro = receitas - despesas;
@@ -68,8 +74,9 @@ export default function LucroScreen() {
       <Text style={styles.titulo}>🚜 Resumo geral da fazenda</Text>
       <Text style={styles.sub}>
         {(todos ?? []).length} cultivo{(todos ?? []).length !== 1 ? 's' : ''} no total ·{' '}
-        {emAndamento} em andamento · {(todos ?? []).length - emAndamento} finalizado
-        {(todos ?? []).length - emAndamento !== 1 ? 's' : ''}
+        {emAndamento} em andamento · {aguardando} a iniciar ·{' '}
+        {(todos ?? []).filter((c) => c.finalizado).length} finalizado
+        {(todos ?? []).filter((c) => c.finalizado).length !== 1 ? 's' : ''}
       </Text>
       <View style={{ marginBottom: 14 }}>
         <Chips opcoes={FILTROS} valor={filtro} onChange={setFiltro} />

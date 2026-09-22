@@ -1,6 +1,6 @@
 import { Botao, Cartao } from '@/components/ui';
 import { alertaClima, buscarClima, descricaoClima, iconeClima, type Clima } from '@/lib/clima';
-import { listCultivosResumo, type CultivoResumo } from '@/lib/cultivos';
+import { aguardandoInicio, listCultivosResumo, type CultivoResumo } from '@/lib/cultivos';
 import { moeda } from '@/lib/formatar';
 import { useFazenda } from '@/contexts/FazendaContext';
 import { useVersaoDados } from '@/lib/useVersaoDados';
@@ -42,7 +42,10 @@ export default function InicioScreen() {
   }, `${fazendaId}:${versao}`);
 
   const alerta = clima ? alertaClima(clima) : null;
-  const ativos = (cultivos ?? []).filter((c) => !c.finalizado);
+  // Safra que ainda não começou (sem plantio e sem despesa até hoje) fica de
+  // fora do resumo, como na lista de cultivos.
+  const ativos = (cultivos ?? []).filter((c) => !c.finalizado && !aguardandoInicio(c));
+  const aguardando = (cultivos ?? []).filter(aguardandoInicio).length;
   const despesas = ativos.reduce((s, c) => s + c.total_despesas, 0);
   const receitas = ativos.reduce((s, c) => s + c.total_receitas, 0);
 
@@ -106,6 +109,12 @@ export default function InicioScreen() {
             </View>
             {cultivos.length === 0 && (
               <Text style={styles.dica}>Você ainda não tem cultivos. Comece cadastrando o primeiro.</Text>
+            )}
+            {aguardando > 0 && (
+              <Text style={styles.dica}>
+                {aguardando} safra(s) cadastrada(s) ainda não começaram — sem plantio nem despesa até
+                hoje.
+              </Text>
             )}
           </>
         )}
