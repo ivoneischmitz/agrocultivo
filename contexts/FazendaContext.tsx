@@ -6,7 +6,9 @@ import {
   listMinhasFazendas,
   type Fazenda,
 } from '@/lib/fazendas';
+import { sincronizar } from '@/lib/syncPonte';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNetworkState } from 'expo-network';
 import { createContext, useCallback, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 
 // Qual fazenda está aberta no app.
@@ -66,7 +68,11 @@ export function FazendaProvider({ children }: PropsWithChildren) {
       } catch {
         // aparelho sem armazenamento disponível: cai na primeira
       }
-      setFazendaId(lista.some((f) => f.id === escolhida) ? escolhida : (lista[0]?.id ?? null));
+      const atual = lista.some((f) => f.id === escolhida) ? escolhida : (lista[0]?.id ?? null);
+      setFazendaId(atual);
+      // No celular, traz o que mudou e sobe o que ficou pendente. Na web não
+      // faz nada (lib/syncPonte.ts).
+      void sincronizar(atual);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não foi possível carregar a fazenda.');
     } finally {
@@ -85,8 +91,17 @@ export function FazendaProvider({ children }: PropsWithChildren) {
     void carregar();
   }, [userId, carregar]);
 
+  // Voltou a internet: sobe o que estava esperando. Sem isso, o lançamento
+  // feito na lavoura só subiria quando o app fosse reaberto.
+  const rede = useNetworkState();
+  const online = rede.isInternetReachable ?? rede.isConnected ?? false;
+  useEffect(() => {
+    if (online && fazendaId) void sincronizar(fazendaId);
+  }, [online, fazendaId]);
+
   function trocar(id: string) {
     setFazendaId(id);
+    void sincronizar(id);
     if (userId) void AsyncStorage.setItem(chaveEscolha(userId), id).catch(() => {});
   }
 

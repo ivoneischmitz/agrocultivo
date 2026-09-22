@@ -17,6 +17,7 @@
     "expo-print": "~57.0.1",
     "expo-router": "~57.0.20",
     "expo-sharing": "~57.0.18",
+    "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "fast-xml-parser": "^5.11.1",
     "react": "19.2.3",

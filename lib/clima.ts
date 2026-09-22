@@ -115,3 +115,21 @@ export async function buscarClima(): Promise<Clima | null> {
     })),
   };
 }
+
+// Open-Meteo (gratuito, sem chave): chuva diária de um período, em mm.
+export async function chuvaDoPeriodo(
+  latitude: number,
+  longitude: number,
+  inicio: string,
+  fim: string,
+): Promise<{ data: string; milimetros: number }[]> {
+  const url =
+    `https://archive-api.open-meteo.com/v1/archive?latitude=${latitude}&longitude=${longitude}` +
+    `&start_date=${inicio}&end_date=${fim}&daily=precipitation_sum&timezone=auto`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('Falha ao consultar o Open-Meteo.');
+  const json = await resp.json();
+  const dias: string[] = json?.daily?.time ?? [];
+  const mm: (number | null)[] = json?.daily?.precipitation_sum ?? [];
+  return dias.map((d, i) => ({ data: d, milimetros: mm[i] ?? 0 }));
+}

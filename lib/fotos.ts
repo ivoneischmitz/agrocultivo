@@ -1,21 +1,10 @@
-import { extensao, lerBytes } from '@/lib/arquivos';
+import { apagarFotoRemota, enviarFotoRemota, type Foto } from '@/lib/fotosRemoto';
 import { supabase } from '@/lib/supabase';
 
-// Fotos do cultivo no bucket público `fotos-cultivo`, em {fazenda_id}/arquivo.
-// Era {user_id}/ até as fazendas compartilhadas existirem: por pessoa, o sócio
-// não conseguiria abrir a foto que o outro tirou. Os arquivos antigos seguem
-// acessíveis pela política do Storage (ver supabase/fazendas.sql).
-
-const BUCKET = 'fotos-cultivo';
-
-export type Foto = {
-  id: string;
-  cultivo_id: string;
-  storage_path: string;
-  url: string;
-  comentario: string | null;
-  data: string;
-};
+// Fotos do cultivo — versão da web, direto no Supabase. O celular usa
+// fotos.native.ts, que lista da cópia local para o histórico aparecer sem
+// sinal. O envio e a exclusão são os mesmos nos dois (lib/fotosRemoto.ts).
+export type { Foto } from '@/lib/fotosRemoto';
 
 export async function listFotos(cultivoId: string): Promise<Foto[]> {
   const { data, error } = await supabase
@@ -34,33 +23,9 @@ export async function enviarFoto(
   uri: string,
   mimeType?: string | null,
 ): Promise<void> {
-  // Na web a uri é blob:, sem extensão; o mimeType diz o formato.
-  const ext = mimeType?.startsWith('image/') ? mimeType.slice(6).replace('jpeg', 'jpg') : extensao(uri);
-  const caminho = `${fazendaId}/${cultivoId}_${Date.now()}.${ext}`;
-  const bytes = await lerBytes(uri);
-
-  const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(caminho, bytes, {
-    contentType: mimeType ?? `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-  });
-  if (erroUpload) throw erroUpload;
-
-  const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(caminho);
-  const { error } = await supabase.from('fotos_cultivo').insert({
-    cultivo_id: cultivoId,
-    storage_path: caminho,
-    url: pub.publicUrl,
-  });
-  if (error) {
-    await supabase.storage.from(BUCKET).remove([caminho]);
-    throw error;
-  }
+  await enviarFotoRemota(fazendaId, cultivoId, uri, mimeType);
 }
 
 export async function deleteFoto(foto: Foto): Promise<void> {
-  const { error } = await supabase
-    .from('fotos_cultivo')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', foto.id);
-  if (error) throw error;
-  await supabase.storage.from(BUCKET).remove([foto.storage_path]);
+  await apagarFotoRemota(foto);
 }

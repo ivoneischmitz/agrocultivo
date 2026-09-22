@@ -1,88 +1,16 @@
 import { supabase } from '@/lib/supabase';
+import type { Anexo, Movimentacao, MovimentacaoInput, MovimentacaoItem, TipoMovimentacao } from '@/lib/tipos';
 
-export type TipoMovimentacao = 'DESPESA' | 'RECEITA';
-
-export type MovimentacaoItem = {
-  id: string;
-  descricao: string;
-  unidade: string;
-  quantidade: number;
-  valor: number;
-};
-
-export type Anexo = {
-  id: string;
-  storage_path: string;
-  nome_arquivo: string;
-  tipo_arquivo: string | null;
-};
-
-export type Movimentacao = {
-  id: string;
-  cultivo_id: string;
-  tipo: TipoMovimentacao;
-  descricao: string;
-  data: string;
-  categoria: string | null;
-  itens: MovimentacaoItem[];
-  anexos: Anexo[];
-  total: number;
-};
-
-export type ItemInput = {
-  // Quem cria gera o id: no celular o item precisa existir antes de haver rede.
-  id?: string;
-  descricao: string;
-  unidade: string;
-  quantidade: number;
-  valor: number;
-};
-
-export type MovimentacaoInput = {
-  cultivo_id: string;
-  tipo: TipoMovimentacao;
-  descricao: string;
-  data: string; // ISO
-  categoria: string | null;
-  itens: ItemInput[];
-};
-
-export const UNIDADES = [
-  'UN - Unidade',
-  'LT - Litro',
-  'GL - Galão',
-  'BL - Balde',
-  'SC - Sacas',
-  'KG - Kilo',
-  'TN - Tonelada',
-];
-
-export const CATEGORIAS: Record<TipoMovimentacao, string[]> = {
-  DESPESA: ['Sementes', 'Fertilizantes', 'Defensivos', 'Combustível', 'Mão de Obra', 'Manutenção', 'Outros'],
-  RECEITA: ['Venda de Grãos', 'Seguro', 'Bonificação', 'Outros'],
-};
-
-const ICONES_CATEGORIA: Record<string, string> = {
-  Sementes: '🌱',
-  Fertilizantes: '🧪',
-  Defensivos: '💧',
-  Combustível: '⛽',
-  'Mão de Obra': '👷',
-  Manutenção: '🔧',
-  Outros: '📋',
-  'Venda de Grãos': '💰',
-  Seguro: '🛡️',
-  Bonificação: '🎁',
-};
-
-export function iconeCategoria(categoria: string | null | undefined): string {
-  return (categoria && ICONES_CATEGORIA[categoria]) || '📋';
-}
-
-// "KG - Kilo" -> "KG". Itens de NF-e importada trazem só a sigla.
-export function siglaUnidade(unidade: string | null | undefined): string {
-  return unidade?.split(' - ')[0] || 'UN';
-}
+// Versão web (ver o comentário em lib/cultivos.ts).
+export { CATEGORIAS, iconeCategoria, siglaUnidade, UNIDADES } from '@/lib/tipos';
+export type {
+  Anexo,
+  ItemInput,
+  Movimentacao,
+  MovimentacaoInput,
+  MovimentacaoItem,
+  TipoMovimentacao,
+} from '@/lib/tipos';
 
 type Linha = Omit<Movimentacao, 'itens' | 'anexos' | 'total'> & {
   movimentacao_itens: MovimentacaoItem[];

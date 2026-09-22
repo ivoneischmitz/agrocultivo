@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fazendasGuardadas, guardarFazendas } from '@/lib/fazendasCache';
 import { supabase } from '@/lib/supabase';
 import { Platform } from 'react-native';
 
@@ -32,14 +33,25 @@ export type Convite = {
   cancelado_em: string | null;
 };
 
+// No celular, a lista também fica guardada na cópia local: sem isso, abrir o
+// app sem sinal travaria antes de qualquer tela, porque tudo depende de saber
+// em que fazenda o app está. Na web o cache não faz nada.
 export async function listMinhasFazendas(): Promise<Fazenda[]> {
-  const { data, error } = await supabase
-    .from('fazendas')
-    .select('*')
-    .is('deleted_at', null)
-    .order('created_at');
-  if (error) throw error;
-  return data ?? [];
+  try {
+    const { data, error } = await supabase
+      .from('fazendas')
+      .select('*')
+      .is('deleted_at', null)
+      .order('created_at');
+    if (error) throw error;
+    const lista = data ?? [];
+    guardarFazendas(lista);
+    return lista;
+  } catch (e) {
+    const guardadas = fazendasGuardadas();
+    if (guardadas) return guardadas;
+    throw e;
+  }
 }
 
 // Conta nova chega sem fazenda nenhuma; a função no banco cria a primeira.

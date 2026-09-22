@@ -1,13 +1,16 @@
+import { ouvirSync, type EstadoSync } from '@/lib/syncPonte';
 import { cores } from '@/lib/tema';
 import { useNetworkState } from 'expo-network';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-// Bolinha de "tem internet / sem internet" na barra de cima.
+// Bolinha de "tem internet / sem internet" na barra de cima, com o que ainda
+// não subiu.
 //
-// Enquanto os dados vivem só no Supabase, ficar sem sinal significa tela vazia
-// e lançamento que não salva. Sem este aviso, o produtor no meio da lavoura
-// lê isso como defeito do app. Quando a cópia local no celular existir, o
-// mesmo indicador passa a dizer "offline, salvando no aparelho".
+// No celular, ficar sem sinal não impede de lançar: o dado fica guardado no
+// aparelho e sobe depois (ver lib/sync.native.ts), e é isso que o contador
+// "N a enviar" mostra. Na web não há cópia local, então sem internet as telas
+// realmente não carregam — e o aviso explica por quê.
 //
 // isInternetReachable é o que interessa: dá para estar num wi-fi que não leva
 // a lugar nenhum. Ele começa indefinido enquanto o aparelho verifica, e nesse
@@ -16,15 +19,40 @@ import { StyleSheet, Text, View } from 'react-native';
 export function StatusRede() {
   const rede = useNetworkState();
   const online = rede.isInternetReachable ?? rede.isConnected ?? true;
+  const [sync, setSync] = useState<{ estado: EstadoSync; pendentes: number }>({
+    estado: 'parado',
+    pendentes: 0,
+  });
+
+  // Só o celular tem o que sincronizar; na web ouvirSync não avisa nada.
+  useEffect(() => ouvirSync((estado, pendentes) => setSync({ estado, pendentes })), []);
+
+  const texto = !online
+    ? sync.pendentes > 0
+      ? `Offline · ${sync.pendentes}`
+      : 'Offline'
+    : sync.estado === 'sincronizando'
+      ? 'Enviando...'
+      : sync.pendentes > 0
+        ? `${sync.pendentes} a enviar`
+        : 'Online';
 
   return (
     <View
       style={[styles.caixa, online ? styles.online : styles.offline]}
       accessibilityRole="text"
-      accessibilityLabel={online ? 'Conectado à internet' : 'Sem internet'}
+      accessibilityLabel={
+        online
+          ? sync.pendentes > 0
+            ? `Conectado. ${sync.pendentes} lançamento(s) ainda não enviado(s)`
+            : 'Conectado à internet'
+          : sync.pendentes > 0
+            ? `Sem internet. ${sync.pendentes} lançamento(s) guardado(s) no aparelho`
+            : 'Sem internet'
+      }
     >
       <View style={[styles.bolinha, { backgroundColor: online ? '#7ddb7d' : '#ffb4a2' }]} />
-      <Text style={styles.texto}>{online ? 'Online' : 'Offline'}</Text>
+      <Text style={styles.texto}>{texto}</Text>
     </View>
   );
 }

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { limparCopiaLocal } from '@/lib/syncPonte';
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 import { Platform } from 'react-native';
@@ -89,6 +90,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     signOut: async () => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      // A cópia local no aparelho é dos dados de quem estava logado; quem
+      // entrar depois não pode encontrá-la. Na web não existe cópia.
+      limparCopiaLocal();
     },
   };
 
