@@ -116,6 +116,10 @@ function Formulario({
   const [notaParaLer, setNotaParaLer] = useState<AnexoPendente | null>(null);
   const [lendoNota, setLendoNota] = useState(false);
   const leitorPdf = useRef<LeitorPdfRef>(null);
+  // Primeira nota lida neste lançamento: dela vêm também o fornecedor e a
+  // data. Da segunda em diante só os produtos — mudar a data do lançamento
+  // por causa de uma segunda nota confundiria mais do que ajudaria.
+  const primeiraNota = useRef(true);
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -127,6 +131,17 @@ function Formulario({
     setItens((l) => l.map((i) => (i.chave === chave ? { ...i, [campo]: valor } : i)));
   }
 
+  // Os produtos da nota entram junto com o que já está na tela: ler uma nota
+  // não apaga o que a pessoa digitou nem os produtos de uma nota anterior, o
+  // que permite lançar duas notas na mesma despesa. Sai apenas a linha em
+  // branco com que o formulário abre, que não seria salva de todo jeito.
+  function acrescentarItens(novos: ItemForm[]) {
+    setItens((l) => [
+      ...l.filter((i) => i.descricao.trim() || i.quantidade.trim() || i.valor.trim()),
+      ...novos,
+    ]);
+  }
+
   // Preenche descrição, data e itens a partir do XML. Vale tanto para o botão
   // de importar quanto para o arquivo que acabou de ser anexado.
   async function preencherComNota(uri: string) {
@@ -134,16 +149,19 @@ function Formulario({
     setAviso(null);
     try {
       const nota = lerNfe(await lerTexto(uri));
-      if (nota.emitente) setDescricao(nota.emitente);
-      if (nota.data) setData(formatDataBR(nota.data));
+      // A descrição só é preenchida se estiver em branco: quem escreveu algo
+      // ali quis aquilo, e não o nome do fornecedor.
+      if (nota.emitente && !descricao.trim()) setDescricao(nota.emitente);
+      if (nota.data && primeiraNota.current) setData(formatDataBR(nota.data));
       if (nota.itens.length > 0) {
-        setItens(
+        acrescentarItens(
           nota.itens.map((i) =>
             novoItem({ descricao: i.descricao, unidade: i.unidade, quantidade: paraCampo(i.quantidade), valor: paraCampo(i.valor) }),
           ),
         );
       }
-      setAviso(`✅ ${nota.itens.length} produto(s) trazido(s) da nota. Confira os valores e salve.`);
+      primeiraNota.current = false;
+      setAviso(`✅ ${nota.itens.length} produto(s) acrescentado(s) da nota. Confira os valores e salve.`);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao processar o XML.');
     }
@@ -165,9 +183,9 @@ function Formulario({
         );
         return;
       }
-      if (nota.emitente) setDescricao(nota.emitente);
-      if (nota.data) setData(formatDataBR(nota.data));
-      setItens(
+      if (nota.emitente && !descricao.trim()) setDescricao(nota.emitente);
+      if (nota.data && primeiraNota.current) setData(formatDataBR(nota.data));
+      acrescentarItens(
         nota.itens.map((i) =>
           novoItem({
             descricao: i.descricao,
@@ -177,10 +195,11 @@ function Formulario({
           }),
         ),
       );
+      primeiraNota.current = false;
       setAviso(
         nota.paraConferir > 0
-          ? `⚠️ ${nota.itens.length} produto(s) trazido(s), ${nota.paraConferir} com valor que não fechou. Confira antes de salvar.`
-          : `✅ ${nota.itens.length} produto(s) trazido(s) do PDF. Confira os valores e salve.`,
+          ? `⚠️ ${nota.itens.length} produto(s) acrescentado(s), ${nota.paraConferir} com valor que não fechou. Confira antes de salvar.`
+          : `✅ ${nota.itens.length} produto(s) acrescentado(s) do PDF. Confira os valores e salve.`,
       );
     } catch (e) {
       setErro(
@@ -382,7 +401,7 @@ function Formulario({
               fiscal. Quer preencher os produtos, as quantidades e os valores com os dados dela?
             </Text>
             <Text style={styles.perguntaAviso}>
-              Isso substitui os itens que já estão na tela.
+              Os produtos entram junto com os que já estão na tela, sem apagar nenhum.
               {tipoDeNota(notaParaLer) === 'pdf'
                 ? ' O PDF é lido da página impressa, então confira os valores; o XML da nota, quando existe, sai exato.'
                 : ''}
