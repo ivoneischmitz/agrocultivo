@@ -210,7 +210,7 @@ const TABELAS: { nome: string; colunas: string; pendente: boolean }[] = [
   { nome: 'fazendas', colunas: 'id, nome, nome_sitio, proprietario, uf, municipio, dono_id, updated_at, deleted_at', pendente: false },
   { nome: 'cultivos', colunas: '*', pendente: true },
   { nome: 'movimentacoes', colunas: '*', pendente: true },
-  { nome: 'movimentacao_itens', colunas: '*', pendente: false },
+  // movimentacao_itens não entra aqui: ver refazerItens.
   { nome: 'movimentacao_anexos', colunas: '*', pendente: true },
   { nome: 'pluviometria', colunas: '*', pendente: true },
   { nome: 'fotos_cultivo', colunas: '*', pendente: true },
@@ -228,8 +228,70 @@ function paraLocal(tabela: string, linha: Record<string, unknown>): LinhaSync {
   return saida as LinhaSync;
 }
 
+// O Supabase devolve no máximo 1.000 linhas por consulta e não avisa quando
+// corta. Sem paginar, uma despesa de nota grande sumiria pela metade em
+// silêncio — o pior tipo de defeito, porque não dá erro nenhum.
+const PAGINA = 1000;
+
+async function itensDoServidor(movIds: string[]): Promise<Record<string, unknown>[]> {
+  const todos: Record<string, unknown>[] = [];
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error } = await supabase
+      .from('movimentacao_itens')
+      .select('*')
+      .in('movimentacao_id', movIds)
+      .order('id')
+      .range(de, de + PAGINA - 1);
+    if (error) throw error;
+    const linhas = (data ?? []) as unknown as Record<string, unknown>[];
+    todos.push(...linhas);
+    if (linhas.length < PAGINA) return todos;
+  }
+}
+
+// Os itens não são baixados por updated_at como as outras tabelas.
+//
+// Editar uma despesa apaga de verdade os itens antigos no servidor — é o que
+// salvar_movimentacao faz — e uma linha apagada nunca aparece numa busca por
+// "o que mudou desde tal data". O aparelho ficava com os itens velhos somados
+// aos novos, dobrando o valor da despesa sem dar erro nem aviso.
+//
+// Então, para cada movimentação que chegou, a lista de itens é refeita
+// inteira. Dá para fazer isso porque salvar_movimentacao sempre mexe no
+// cabeçalho: se um item mudou, a movimentação veio nesta descida.
+async function refazerItens(movIds: string[]): Promise<number> {
+  // Despesa alterada aqui e ainda não enviada: o que vale é o do aparelho,
+  // como em guardarDoServidor. Normalmente não acontece — subir vem antes de
+  // baixar —, mas acontece se a subida falhou no meio.
+  const alvos = movIds.filter(
+    (id) =>
+      db.getFirstSync<{ pendente: number }>('select pendente from movimentacoes where id = ?', id)
+        ?.pendente !== 1,
+  );
+
+  let total = 0;
+  // Em lotes: `in (...)` com uma lista muito longa estoura o limite de
+  // parâmetros do SQLite e o tamanho da URL do PostgREST.
+  for (let i = 0; i < alvos.length; i += 50) {
+    const lote = alvos.slice(i, i + 50);
+    const linhas = await itensDoServidor(lote);
+
+    // A limpeza vem depois da busca, de propósito: se a rede caísse no meio,
+    // apagar antes deixaria a despesa sem itens nenhum no aparelho.
+    const marcas = lote.map(() => '?').join(', ');
+    db.runSync(`delete from movimentacao_itens where movimentacao_id in (${marcas})`, lote);
+    for (const linha of linhas) {
+      guardarDoServidor('movimentacao_itens', paraLocal('movimentacao_itens', linha), false);
+    }
+    total += linhas.length;
+  }
+  return total;
+}
+
 async function baixar(fazendaId: string): Promise<void> {
   let trouxe = 0;
+  // Movimentações que chegaram nesta descida: os itens delas vêm em seguida.
+  const movimentacoesBaixadas: string[] = [];
   for (const t of TABELAS) {
     const desde = ultimaBusca(t.nome);
     // Uma folga de um minuto cobre a diferença de relógio entre o servidor e o
@@ -245,6 +307,7 @@ async function baixar(fazendaId: string): Promise<void> {
 
     for (const linha of (data ?? []) as unknown as Record<string, unknown>[]) {
       guardarDoServidor(t.nome, paraLocal(t.nome, linha), t.pendente);
+      if (t.nome === 'movimentacoes') movimentacoesBaixadas.push(linha.id as string);
     }
     // Aparece no log do aparelho (adb logcat). Sem isso, uma sincronização que
     // não traz nada é indistinguível de uma que não rodou.
@@ -252,6 +315,13 @@ async function baixar(fazendaId: string): Promise<void> {
     trouxe += (data ?? []).length;
     anotarBusca(t.nome, inicio);
   }
+
+  if (movimentacoesBaixadas.length > 0) {
+    const itens = await refazerItens(movimentacoesBaixadas);
+    console.log(`sync refez ${itens} itens de ${movimentacoesBaixadas.length} movimentação(ões)`);
+    trouxe += itens;
+  }
+
   if (trouxe > 0) versao++;
 }
 
