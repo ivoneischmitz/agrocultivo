@@ -14,7 +14,8 @@ export type {
 
 type Linha = Omit<Movimentacao, 'itens' | 'anexos' | 'total'> & {
   movimentacao_itens: MovimentacaoItem[];
-  movimentacao_anexos: Anexo[];
+  // deleted_at vem no embed porque o filtro dele é feito aqui (ver montar).
+  movimentacao_anexos: (Anexo & { deleted_at: string | null })[];
 };
 
 function montar(m: Linha): Movimentacao {
@@ -29,7 +30,11 @@ function montar(m: Linha): Movimentacao {
     data: m.data,
     categoria: m.categoria,
     itens,
-    anexos: m.movimentacao_anexos ?? [],
+    // Anexo removido continua na tabela com deleted_at preenchido, para um
+    // aparelho offline saber que ele saiu. O embed do PostgREST traz a linha
+    // de todo jeito, então quem tira daqui é este filtro — sem ele, o anexo
+    // excluído reaparecia ao abrir a despesa de novo.
+    anexos: (m.movimentacao_anexos ?? []).filter((a) => !a.deleted_at),
     total: itens.reduce((s, i) => s + i.quantidade * i.valor, 0),
   };
 }
