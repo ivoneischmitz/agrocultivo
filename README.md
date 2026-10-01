@@ -102,7 +102,9 @@ Sem isso configurado, o app continua inteiro; só a leitura de foto responde que
 
 **Privacidade:** na camada gratuita do Gemini, o Google pode usar o que for enviado para melhorar os modelos deles — aqui, as fotos das suas notas e contratos. Num projeto pago, não. Vale saber antes de fotografar documento com dado sensível.
 
-**Cota:** a camada gratuita permite **20 leituras por minuto** (`generate_content_free_tier_requests`). É teto por minuto, não por dia: lançando uma nota de cada vez não se chega perto dele, e uma sessão de testes em rajada o estoura em segundos. Quando o Google recusa por cota ou por sobrecarga e diz em quanto tempo volta, a função espera e tenta de novo sozinha; só desiste depois de uns dez segundos, e aí a tela pede para esperar um minuto. O resto do app continua inteiro.
+**Cota:** a camada gratuita permite **20 leituras por dia, por modelo** (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`). É um teto baixo: uma sessão de testes o esgota. Como a conta é por modelo, a função tem uma fila de reservas (`GEMINI_MODELOS_RESERVA`, padrão `gemini-3.7-flash,gemini-3.6-flash,gemini-3.1-flash-lite`) e passa ao próximo quando o do dia acaba — na prática, uns 80 por dia. Esgotados todos, a leitura avisa que volta amanhã (a cota reinicia à meia-noite do horário do Pacífico, 4h da manhã em Brasília). Para uso de verdade, o caminho é ativar o faturamento no Google AI Studio: o custo por foto é de frações de centavo, e no plano pago o Google deixa de usar o conteúdo para treinar modelos. Sobrecarga (503) e limite por minuto a função espera e repete sozinha. O resto do app continua inteiro.
+
+**Erros chegam como HTTP 200:** recusa esperada (cota, sobrecarga, imagem grande) volta com status 200 e o motivo em `erro`, e o status verdadeiro em `x-status-real`. Qualquer outro status faz o supabase-js mostrar só "Edge Function returned a non-2xx status code" e esconder o corpo.
 
 ### Conferência
 

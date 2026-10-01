@@ -18,6 +18,14 @@ const CHAVE = Deno.env.get('GEMINI_API_KEY');
 // dizendo qual é o substituto, e basta um `supabase secrets set GEMINI_MODEL`.
 const MODELO = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.8-flash';
 
+// A camada gratuita conta a cota POR MODELO: 20 leituras por dia em cada um.
+// Esgotado o principal, os reservas seguem de pé. Não entra o gemini-3.5-flash:
+// testado, estourava o limite de tempo do servidor mesmo sem deliberação.
+const RESERVAS = (Deno.env.get('GEMINI_MODELOS_RESERVA') ?? 'gemini-3.7-flash,gemini-3.6-flash,gemini-3.1-flash-lite')
+  .split(',')
+  .map((m) => m.trim())
+  .filter(Boolean);
+
 const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 // Uma foto de celular passa longe disso; o limite existe para um arquivo
 // grande demais não virar uma conta grande demais.
@@ -75,13 +83,28 @@ const ESQUEMA = {
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Expose-Headers': 'x-status-real',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Recusa esperada (cota, sobrecarga, imagem grande demais) sai com HTTP 200 e o
+// motivo em `erro`, e não com 4xx/5xx.
+//
+// Qualquer status fora de 2xx faz o supabase-js lançar "Edge Function returned
+// a non-2xx status code" e esconder o corpo da resposta — e no celular o app
+// nem consegue pegá-lo de volta. Quem estava com a nota na mão via essa frase
+// em inglês e não sabia se faltava luz, internet ou cota. O status verdadeiro
+// segue no cabeçalho x-status-real e no log, para quem for investigar.
 function resposta(corpo: unknown, status = 200): Response {
+  const falha = typeof corpo === 'object' && corpo !== null && 'erro' in corpo;
+  if (falha) console.error('recusa', status, JSON.stringify(corpo));
   return new Response(JSON.stringify(corpo), {
-    status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    status: falha ? 200 : status,
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json',
+      ...(falha ? { 'x-status-real': String(status) } : {}),
+    },
   });
 }
 
@@ -173,10 +196,7 @@ Deno.serve(async (req) => {
     return resposta({ erro: 'Imagem grande demais. Tire a foto com menos resolução.' }, 413);
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent`;
-  let r: Response;
-  try {
-    r = await pedirComPaciencia(url, JSON.stringify({
+  const pedido = JSON.stringify({
         contents: [
           {
             role: 'user',
@@ -198,7 +218,22 @@ Deno.serve(async (req) => {
           // quantidade × valor, não o esforço do modelo.
           thinkingConfig: { thinkingBudget: 0 },
         },
-    }));
+  });
+
+  let r!: Response;
+  try {
+    for (const modelo of [MODELO, ...RESERVAS]) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`;
+      r = await pedirComPaciencia(url, pedido);
+      // Só a cota do dia justifica trocar de modelo: ela é por modelo, e o
+      // próximo tem a sua. Qualquer outra recusa vale para todos.
+      if (r.status === 429 && /PerDay/i.test(await r.clone().text())) {
+        console.log(`cota do dia esgotada em ${modelo}, tentando o próximo`);
+        continue;
+      }
+      console.log(`lido com ${modelo}`);
+      break;
+    }
   } catch {
     return resposta({ erro: 'Não foi possível falar com o serviço de leitura.' }, 502);
   }
@@ -211,11 +246,16 @@ Deno.serve(async (req) => {
       // gratuita é por minuto, e vem escrito no recado em inglês; o número
       // ajuda a entender, o resto do texto não.
       const limite = /limit:\s*(\d+)/.exec(bruto)?.[1];
+      // O identificador da cota diz a janela: ...PerDay... ou ...PerMinute....
+      const idCota = /"quotaId"\s*:\s*"([^"]+)"/.exec(bruto)?.[1] ?? '';
+      console.error('cota', limite, idCota);
+      const porDia = /PerDay/i.test(idCota);
       return resposta(
         {
-          erro: limite
-            ? `O serviço permite ${limite} leituras por minuto e o teto foi atingido. Espere um minuto e tente de novo.`
-            : 'O limite de leituras do serviço foi atingido. Espere um minuto e tente de novo.',
+          erro: porDia
+            ? `O limite diário de leituras foi atingido (${limite ?? '?'} por dia). Volta amanhã.`
+            : `O limite de leituras por minuto foi atingido. Espere um minuto e tente de novo.`,
+          cota: idCota || undefined,
         },
         502,
       );
