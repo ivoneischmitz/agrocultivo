@@ -1,3 +1,4 @@
+import { unidadeDoDocumento } from '@/lib/nota';
 import { XMLParser } from 'fast-xml-parser';
 
 // Lê o XML de uma NF-e e devolve o que vira movimentação: emitente como
@@ -25,7 +26,7 @@ export function lerNfe(xml: string): NotaImportada {
     data,
     itens: dets.map((d) => ({
       descricao: String(d.prod?.xProd ?? ''),
-      unidade: String(d.prod?.uCom ?? 'UN'),
+      unidade: unidadeDoDocumento(String(d.prod?.uCom ?? '')),
       // Na NF-e o decimal é sempre ponto ("12.5000").
       quantidade: Number(d.prod?.qCom ?? 0) || 0,
       valor: Number(d.prod?.vUnCom ?? 0) || 0,

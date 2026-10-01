@@ -40,3 +40,42 @@ export function precisaConferir(quantidade: number, valor: number, total: number
 export function montarNota(emitente: string, data: string | null, itens: ItemLido[]): NotaLida {
   return { emitente, data, itens, paraConferir: itens.filter((i) => i.conferir).length };
 }
+
+// A embalagem impressa no documento, traduzida para a lista de unidades do app
+// (UNIDADES em lib/tipos.ts).
+//
+// O papel escreve o que o fornecedor usa — "5 LTS", "SACAS (40 KG)", "LT" — e
+// nada disso é uma das opções do formulário. Sem traduzir, o item chegava com
+// uma unidade que o campo de escolha não reconhece.
+//
+// A regra de volume vale na prática da lavoura: o defensivo que vem em cinco
+// litros vem em galão, o de vinte vem em balde. Outro tamanho qualquer
+// continua sendo litro, que é o que de fato se comprou.
+export function unidadeDoDocumento(texto: string | null | undefined): string {
+  const t = (texto ?? '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^A-Z0-9,.]+/g, ' ')
+    .trim();
+  if (!t) return 'UN - Unidade';
+
+  // Saca antes de quilo: "SACAS (40 KG)" tem os dois, e o que se compra é a
+  // saca.
+  if (/\b(SC|SACO|SACOS|SACA|SACAS)\b/.test(t)) return 'SC - Sacas';
+  if (/\b(TN|TON|TONELADA|TONELADAS)\b/.test(t)) return 'TN - Tonelada';
+  if (/\b(BL|BALDE|BALDES)\b/.test(t)) return 'BL - Balde';
+  if (/\b(GL|GALAO|GALOES)\b/.test(t)) return 'GL - Galão';
+
+  // Volume com tamanho: é o tamanho que diz qual é a embalagem.
+  const litros = /\b(\d+(?:[.,]\d+)?)\s*(L|LT|LTS|LITRO|LITROS)\b/.exec(t);
+  if (litros) {
+    const n = Number(litros[1].replace(',', '.'));
+    if (n === 5) return 'GL - Galão';
+    if (n === 20) return 'BL - Balde';
+    return 'LT - Litro';
+  }
+  if (/\b(L|LT|LTS|LITRO|LITROS)\b/.test(t)) return 'LT - Litro';
+  if (/\b(KG|KGS|QUILO|QUILOS|KILO|KILOS)\b/.test(t)) return 'KG - Kilo';
+  return 'UN - Unidade';
+}

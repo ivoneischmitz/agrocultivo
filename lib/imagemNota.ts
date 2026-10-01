@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { montarNota, precisaConferir, type ItemLido, type NotaLida } from '@/lib/nota';
+import { montarNota, precisaConferir, unidadeDoDocumento, type ItemLido, type NotaLida } from '@/lib/nota';
 
 // Leitura da foto de um documento de compra.
 //
@@ -62,7 +62,7 @@ export async function lerImagem(base64: string, mimeType: string): Promise<NotaL
     if (!descricao || !(quantidade > 0) || !(valor > 0)) continue;
     itens.push({
       descricao,
-      unidade: (b.unidade ?? '').trim().toUpperCase() || 'UN',
+      unidade: unidadeDoDocumento(b.unidade),
       quantidade,
       valor,
       conferir: precisaConferir(quantidade, valor, numero(b.total)),

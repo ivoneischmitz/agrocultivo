@@ -1,4 +1,4 @@
-import { montarNota, precisaConferir, type ItemLido, type NotaLida } from '@/lib/nota';
+import { montarNota, precisaConferir, unidadeDoDocumento, type ItemLido, type NotaLida } from '@/lib/nota';
 
 // Leitura do PDF da DANFE.
 //
@@ -101,7 +101,7 @@ export function lerDanfe(texto: string): NotaLida {
 
     itens.push({
       descricao: continua ? `${descricao} ${seguinte}`.trim() : descricao.trim(),
-      unidade: unidade.toUpperCase(),
+      unidade: unidadeDoDocumento(unidade),
       quantidade,
       valor,
       conferir,
