@@ -76,9 +76,14 @@ export async function lerImagem(base64: string, mimeType: string): Promise<NotaL
 // O supabase-js embrulha a falha e deixa o corpo da resposta dentro do objeto
 // de contexto; sem isto, o motivo real se perderia num "Edge Function returned
 // a non-2xx status code".
+//
+// E quando a função nem existe, a mensagem que chega é "Failed to send a
+// request to the Edge Function" — em inglês e sem dizer o que fazer. Quem
+// está lançando uma despesa no meio da lavoura merece coisa melhor.
 async function mensagemDoErro(error: unknown): Promise<string | null> {
   const contexto = (error as { context?: unknown })?.context;
   if (contexto instanceof Response) {
+    if (contexto.status === 404) return NAO_PUBLICADA;
     try {
       const corpo = (await contexto.json()) as { erro?: string };
       if (corpo?.erro) return corpo.erro;
@@ -86,5 +91,12 @@ async function mensagemDoErro(error: unknown): Promise<string | null> {
       // resposta sem JSON: fica a mensagem genérica
     }
   }
-  return error instanceof Error ? error.message : null;
+  const bruto = error instanceof Error ? error.message : '';
+  if (/failed to send a request|failed to fetch|network/i.test(bruto)) {
+    return `${NAO_PUBLICADA} Se ela já foi, confira a internet e tente de novo.`;
+  }
+  return bruto || null;
 }
+
+const NAO_PUBLICADA =
+  'A leitura de imagem ainda não está no ar: falta publicar a função ler-documento no Supabase (veja o README).';

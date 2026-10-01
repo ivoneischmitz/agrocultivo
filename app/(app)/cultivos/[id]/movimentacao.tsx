@@ -118,6 +118,10 @@ function Formulario({
   const [notaParaLer, setNotaParaLer] = useState<AnexoPendente | null>(null);
   const [lendoNota, setLendoNota] = useState(false);
   const leitorPdf = useRef<LeitorPdfRef>(null);
+  // A faixa da nota fica lá embaixo, nos anexos, e o resultado da leitura
+  // aparece no topo — junto com os itens que acabaram de entrar. Sem subir a
+  // tela, quem toca em "Sim, preencher" vê a faixa sumir e mais nada.
+  const rolagem = useRef<ScrollView>(null);
   // Primeira nota lida neste lançamento: dela vêm também o fornecedor e a
   // data. Da segunda em diante só os produtos — mudar a data do lançamento
   // por causa de uma segunda nota confundiria mais do que ajudaria.
@@ -398,7 +402,7 @@ function Formulario({
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen options={{ title: titulo }} />
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={rolagem} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {!!cultivoTitulo && <Text style={styles.cultivo}>🌾 {cultivoTitulo}</Text>}
 
         <Mensagem texto={erro} />
@@ -525,6 +529,7 @@ function Formulario({
                     else await preencherComNota(nota.uri);
                   } finally {
                     setLendoNota(false);
+                    rolagem.current?.scrollTo({ y: 0, animated: true });
                   }
                 }}
                 style={{ flex: 1 }}

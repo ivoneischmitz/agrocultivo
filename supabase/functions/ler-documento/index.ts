@@ -66,14 +66,25 @@ const ESQUEMA = {
   required: ['itens'],
 };
 
+// O app na web roda noutro endereço (agrocultivo.vercel.app) e o navegador
+// exige estes cabeçalhos antes de deixar a chamada sair — inclusive uma
+// resposta ao OPTIONS que ele manda na frente. Sem isso o pedido nem chega
+// aqui, e o erro que aparece na tela é o genérico de rede.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 function resposta(corpo: unknown, status = 200): Response {
   return new Response(JSON.stringify(corpo), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...CORS, 'Content-Type': 'application/json' },
   });
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return resposta({ erro: 'Método não suportado.' }, 405);
   if (!CHAVE) {
     return resposta(
