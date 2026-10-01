@@ -3,6 +3,7 @@ import { agora, db, novoId } from '@/lib/dbLocal.native';
 import type { Anexo } from '@/lib/tipos';
 import { agendarSync } from '@/lib/sync.native';
 import { supabase } from '@/lib/supabase';
+import { Linking } from 'react-native';
 
 // Anexos no celular: mesma ideia das fotos. O documento escolhido sem sinal
 // fica guardado no aparelho e sobe depois (ver lib/sync.native.ts).
@@ -62,4 +63,10 @@ export async function linkDoAnexo(anexo: Anexo): Promise<string> {
   const { data, error } = await supabase.storage.from('anexos').createSignedUrl(anexo.storage_path, 600);
   if (error) throw error;
   return data.signedUrl;
+}
+
+// Mesma porta de entrada da web (ver lib/anexos.ts), onde a abertura precisa
+// de cuidado com o Safari. Aqui é só entregar o endereço ao sistema.
+export async function abrirAnexo(anexo: Anexo): Promise<void> {
+  await Linking.openURL(await linkDoAnexo(anexo));
 }

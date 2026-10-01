@@ -2,7 +2,7 @@ import { DateField } from '@/components/DateField';
 import { LeitorPdf, type LeitorPdfRef } from '@/components/LeitorPdf';
 import { SelectField } from '@/components/SelectField';
 import { Botao, Campo, Carregando, Mensagem, styles as ui } from '@/components/ui';
-import { enviarAnexo, removerAnexo, type AnexoPendente } from '@/lib/anexos';
+import { abrirAnexo, enviarAnexo, removerAnexo, type AnexoPendente } from '@/lib/anexos';
 import { lerBase64, lerTexto } from '@/lib/arquivos';
 import { formatDataBR, hojeISO, parseDataBR } from '@/lib/data';
 import { moeda, paraCampo, parseNumeroLivre } from '@/lib/formatar';
@@ -244,6 +244,17 @@ function Formulario({
     }
   }
 
+  // O anexo já salvo abre pelo nome. Antes só o ✕ respondia ao toque: dava
+  // para apagar o documento desta tela, mas não para conferir o que ele era.
+  async function verAnexo(a: Anexo) {
+    setErro(null);
+    try {
+      await abrirAnexo(a);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível abrir o anexo.');
+    }
+  }
+
   async function tirarAnexoSalvo(a: Anexo) {
     try {
       await removerAnexo(a);
@@ -440,7 +451,11 @@ function Formulario({
         )}
         {anexosSalvos.map((a) => (
           <View key={`s${a.id}`} style={styles.anexo}>
-            <Text style={styles.anexoNome} numberOfLines={1}>📄 {a.nome_arquivo}</Text>
+            <Pressable onPress={() => verAnexo(a)} style={styles.anexoAbrir}>
+              <Text style={[styles.anexoNome, styles.anexoLink]} numberOfLines={1}>
+                📄 {a.nome_arquivo}
+              </Text>
+            </Pressable>
             <Pressable onPress={() => tirarAnexoSalvo(a)}>
               <Text style={styles.removerTexto}>✕</Text>
             </Pressable>
@@ -502,6 +517,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   anexoNome: { flex: 1, color: cores.texto },
+  // O nome ocupa a linha menos o ✕; sublinhado para se ver que é clicável.
+  anexoAbrir: { flex: 1 },
+  anexoLink: { textDecorationLine: 'underline' },
   perguntaNota: {
     backgroundColor: cores.chuvaClara,
     borderWidth: 1,

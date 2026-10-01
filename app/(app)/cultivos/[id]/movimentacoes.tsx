@@ -1,5 +1,5 @@
 import { BotaoConfirmar, Carregando, Mensagem, Vazio } from '@/components/ui';
-import { linkDoAnexo } from '@/lib/anexos';
+import { abrirAnexo } from '@/lib/anexos';
 import { formatDataBR } from '@/lib/data';
 import { moeda, quantidade } from '@/lib/formatar';
 import {
@@ -17,7 +17,7 @@ import { useVersaoDados } from '@/lib/useVersaoDados';
 import { useRecarregarAoFocar } from '@/lib/useRecarregarAoFocar';
 import { router, Stack, useLocalSearchParams, type Href } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function MovimentacoesScreen() {
   const { tipo: tipoParam } = useLocalSearchParams<{ tipo?: string }>();
@@ -49,13 +49,11 @@ export default function MovimentacoesScreen() {
     }
   }
 
-  async function abrirAnexo(a: Anexo) {
+  async function verAnexo(a: Anexo) {
     try {
-      const url = await linkDoAnexo(a);
-      if (Platform.OS === 'web') window.open(url, '_blank');
-      else await Linking.openURL(url);
-    } catch {
-      setErro('Não foi possível abrir o anexo.');
+      await abrirAnexo(a);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível abrir o anexo.');
     }
   }
 
@@ -127,7 +125,7 @@ export default function MovimentacoesScreen() {
               {m.anexos.length > 0 && (
                 <View style={styles.anexos}>
                   {m.anexos.map((a) => (
-                    <Pressable key={a.id} style={styles.anexo} onPress={() => abrirAnexo(a)}>
+                    <Pressable key={a.id} style={styles.anexo} onPress={() => verAnexo(a)}>
                       <Text style={styles.anexoTexto} numberOfLines={1}>
                         {a.storage_path ? '📄' : '⏳'} {a.nome_arquivo}
                       </Text>

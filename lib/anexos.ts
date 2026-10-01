@@ -53,3 +53,32 @@ export async function linkDoAnexo(anexo: Anexo): Promise<string> {
   if (error) throw error;
   return data.signedUrl;
 }
+
+// Abrir o anexo numa aba nova.
+//
+// A aba é aberta em branco na primeira linha, antes de qualquer espera, e só
+// depois recebe o endereço. O motivo é o Safari: ele só permite abrir aba
+// durante o próprio toque, e o link do bucket privado exige uma ida ao
+// servidor. Pedindo a aba depois desse `await`, o Safari bloqueava sem avisar
+// nada — tocar no anexo simplesmente não fazia efeito. O Chrome é mais
+// tolerante, e por isso o defeito aparecia só no iPhone.
+export async function abrirAnexo(anexo: Anexo): Promise<void> {
+  const aba = window.open('', '_blank');
+  try {
+    const url = await linkDoAnexo(anexo);
+    if (aba) {
+      aba.location.href = url;
+      return;
+    }
+    // O navegador recusou a aba. Tenta uma vez com o endereço pronto e, se
+    // também recusar, avisa o que fazer. De propósito não se abre o arquivo na
+    // aba atual: funcionaria, mas levaria embora a despesa que estiver sendo
+    // digitada na tela de trás.
+    if (!window.open(url, '_blank')) {
+      throw new Error('O navegador bloqueou a abertura. Libere pop-ups para este site e toque de novo.');
+    }
+  } catch (e) {
+    aba?.close();
+    throw e;
+  }
+}
