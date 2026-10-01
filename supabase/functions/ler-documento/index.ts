@@ -85,21 +85,46 @@ function resposta(corpo: unknown, status = 200): Response {
   });
 }
 
-// O modelo fica sobrecarregado de vez em quando e responde 503. É passageiro,
-// e quem está com a nota na mão não tem por que saber disso: tenta de novo
-// aqui mesmo, esperando um pouco mais a cada vez.
+// Duas recusas do Google são passageiras e não deveriam chegar até quem está
+// com a nota na mão:
+//
+//   503  o modelo está cheio. Passa em segundos.
+//   429  a camada gratuita permite vinte leituras por minuto. Estourado o
+//        teto, ele mesmo responde "tente de novo em 971ms" — e esperar isso
+//        é mais sensato do que mandar a pessoa tentar mais tarde.
+//
+// Em ambos, espera e tenta de novo aqui mesmo.
 async function pedirComPaciencia(url: string, corpo: string): Promise<Response> {
-  const esperas = [1000, 3000];
+  const esperas = [1000, 3000, 6000];
   for (let i = 0; ; i++) {
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': CHAVE! },
       body: corpo,
     });
-    if (r.status !== 503 || i >= esperas.length) return r;
-    console.log(`gemini 503, tentando de novo em ${esperas[i]}ms`);
-    await new Promise((f) => setTimeout(f, esperas[i]));
+    if ((r.status !== 503 && r.status !== 429) || i >= esperas.length) return r;
+
+    // No 429 o Google manda quanto esperar; vale mais que o nosso palpite,
+    // desde que seja uma espera de gente — não a de quem gastou a cota do dia.
+    let espera = esperas[i];
+    if (r.status === 429) {
+      const sugerido = segundosSugeridos(await r.clone().text());
+      if (sugerido === null || sugerido > 15) return r;
+      espera = Math.max(1000, Math.ceil(sugerido * 1000) + 300);
+    }
+    console.log(`gemini ${r.status}, tentando de novo em ${espera}ms`);
+    await new Promise((f) => setTimeout(f, espera));
   }
+}
+
+// "Please retry in 971.604942ms" ou o RetryInfo de "1s" que vem nos detalhes.
+function segundosSugeridos(bruto: string): number | null {
+  const ms = /retry in ([\d.]+)ms/i.exec(bruto);
+  if (ms) return Number(ms[1]) / 1000;
+  const s = /"retryDelay"\s*:\s*"([\d.]+)s"/i.exec(bruto);
+  if (s) return Number(s[1]);
+  const seg = /retry in ([\d.]+)s/i.exec(bruto);
+  return seg ? Number(seg[1]) : null;
 }
 
 Deno.serve(async (req) => {
@@ -182,7 +207,18 @@ Deno.serve(async (req) => {
     const bruto = await r.text();
     console.error('gemini', r.status, bruto);
     if (r.status === 429) {
-      return resposta({ erro: 'O limite de leituras do serviço foi atingido. Tente de novo mais tarde.' }, 502);
+      // Chegou aqui depois das esperas de pedirComPaciencia. O teto da camada
+      // gratuita é por minuto, e vem escrito no recado em inglês; o número
+      // ajuda a entender, o resto do texto não.
+      const limite = /limit:\s*(\d+)/.exec(bruto)?.[1];
+      return resposta(
+        {
+          erro: limite
+            ? `O serviço permite ${limite} leituras por minuto e o teto foi atingido. Espere um minuto e tente de novo.`
+            : 'O limite de leituras do serviço foi atingido. Espere um minuto e tente de novo.',
+        },
+        502,
+      );
     }
     // Chegou aqui depois das tentativas de pedirComPaciencia: a sobrecarga não
     // passou em quinze segundos.
@@ -198,7 +234,7 @@ Deno.serve(async (req) => {
     // cabeçalho, nunca no endereço.
     let motivo = '';
     try {
-      motivo = String(JSON.parse(bruto)?.error?.message ?? '').slice(0, 300);
+      motivo = String(JSON.parse(bruto)?.error?.message ?? '').slice(0, 900);
     } catch {
       motivo = bruto.slice(0, 200);
     }

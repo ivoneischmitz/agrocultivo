@@ -102,7 +102,7 @@ Sem isso configurado, o app continua inteiro; só a leitura de foto responde que
 
 **Privacidade:** na camada gratuita do Gemini, o Google pode usar o que for enviado para melhorar os modelos deles — aqui, as fotos das suas notas e contratos. Num projeto pago, não. Vale saber antes de fotografar documento com dado sensível.
 
-**Cota:** a camada gratuita tem teto por minuto e por dia, e ele é baixo — uma sessão de testes o esgota. Estourado, a leitura responde "o limite de leituras foi atingido"; o resto do app continua inteiro. O teto por minuto volta em um minuto; o diário, no dia seguinte.
+**Cota:** a camada gratuita permite **20 leituras por minuto** (`generate_content_free_tier_requests`). É teto por minuto, não por dia: lançando uma nota de cada vez não se chega perto dele, e uma sessão de testes em rajada o estoura em segundos. Quando o Google recusa por cota ou por sobrecarga e diz em quanto tempo volta, a função espera e tenta de novo sozinha; só desiste depois de uns dez segundos, e aí a tela pede para esperar um minuto. O resto do app continua inteiro.
 
 ### Conferência
 
