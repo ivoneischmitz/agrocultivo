@@ -17,7 +17,7 @@
       "bundleIdentifier": "com.agronegocio.appcultivo",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "A localização é usada para mostrar o clima e marcar o local do cultivo.",
-        "NSCameraUsageDescription": "A câmera é usada para fotografar o cultivo.",
+        "NSCameraUsageDescription": "A câmera é usada para fotografar o cultivo e as notas de compra.",
         "NSPhotoLibraryUsageDescription": "A galeria é usada para anexar fotos ao cultivo."
       }
     },

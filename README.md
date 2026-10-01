@@ -70,7 +70,32 @@ Ao anexar um arquivo no lançamento de despesa, o app pergunta se deve preencher
 - **XML da NF-e**: dado estruturado, sai exato (`lib/nfe.ts`).
 - **PDF da DANFE**: o texto é extraído com o pdf.js, que roda numa WebView escondida no celular e num iframe na web (`components/LeitorPdf*`, `lib/pdfHtml.ts`), e a tabela de produtos é reconhecida em `lib/danfe.ts`. Como é leitura de página impressa, cada item passa por uma conferência — quantidade × valor unitário tem que bater com o total da linha — e o que não fecha vem marcado na tela.
 
-O pdf.js vem de CDN, então ler PDF exige internet, diferente do resto do app. Nota digitalizada (foto do papel) não tem texto e não é lida.
+- **Foto do papel** (JPG/PNG): nota, contrato de insumos, pedido — qualquer documento com tabela de produtos. O botão "📷 Fotografar" tira a foto na hora, e ela fica guardada como anexo da despesa.
+
+Ler PDF e ler foto exigem internet, diferente do resto do app.
+
+### Configurando a leitura de foto (uma vez)
+
+A foto não tem texto nenhum, só pixels: a leitura é feita pelo Gemini, do Google. A chave dele **não pode ficar no aplicativo** — chave dentro de app instalado é chave pública, qualquer pessoa a extrai do pacote e passa a gastar na sua conta. Ela mora numa função do Supabase (`supabase/functions/ler-documento`), que só responde a quem está logado.
+
+1. Crie a chave no [Google AI Studio](https://aistudio.google.com/apikey).
+2. Guarde a chave no projeto e publique a função:
+
+```bash
+supabase link --project-ref efpghgwlvmrnnsmwhohy
+supabase secrets set GEMINI_API_KEY=<a chave>
+supabase functions deploy ler-documento
+```
+
+Publique **sem** `--no-verify-jwt`: é a conferência do token que impede alguem de fora usar a sua cota. Para trocar de modelo depois, `supabase secrets set GEMINI_MODEL=...` (o padrão é `gemini-2.5-flash`).
+
+Sem isso configurado, o app continua inteiro; só a leitura de foto responde que ainda não foi configurada.
+
+**Privacidade:** na camada gratuita do Gemini, o Google pode usar o que for enviado para melhorar os modelos deles — aqui, as fotos das suas notas e contratos. Num projeto pago, não. Vale saber antes de fotografar documento com dado sensível.
+
+### Conferência
+
+PDF e foto são leitura de papel, então cada item passa pela mesma conferência (`lib/nota.ts`): quantidade × valor unitário tem que bater com o total impresso na linha, e o que não fecha vem marcado na tela. A folga acompanha a quantidade, porque o próprio documento arredonda — um contrato que mostra 3,49 pode estar cobrando 3,4864, e com 3.800 sacas isso dá treze reais de diferença legítima.
 
 ## Exclusão de conta
 

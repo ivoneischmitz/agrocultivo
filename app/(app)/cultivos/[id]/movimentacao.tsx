@@ -17,11 +17,13 @@ import {
   type TipoMovimentacao,
 } from '@/lib/movimentacoes';
 import { lerDanfe } from '@/lib/danfe';
+import { lerImagem } from '@/lib/imagemNota';
 import { lerNfe } from '@/lib/nfe';
 import { cores } from '@/lib/tema';
 import { useFazenda } from '@/contexts/FazendaContext';
 import { useCultivo } from '@/lib/useCultivo';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -225,10 +227,87 @@ function Formulario({
   // XML de NF-e é dado estruturado: os produtos saem exatos. O PDF da DANFE é
   // uma página desenhada, e a leitura dele é um palpite educado — daí a
   // conferência item a item em lib/danfe.ts e o aviso na tela.
-  function tipoDeNota(a: AnexoPendente): 'xml' | 'pdf' | null {
+  function tipoDeNota(a: AnexoPendente): 'xml' | 'pdf' | 'imagem' | null {
     if (/\.xml$/i.test(a.nome_arquivo) || /xml/i.test(a.tipo_arquivo ?? '')) return 'xml';
     if (/\.pdf$/i.test(a.nome_arquivo) || /pdf/i.test(a.tipo_arquivo ?? '')) return 'pdf';
+    if (/\.(jpe?g|png|webp|heic|heif)$/i.test(a.nome_arquivo) || /^image\//i.test(a.tipo_arquivo ?? ''))
+      return 'imagem';
     return null;
+  }
+
+  // O que o serviço de leitura aceita. O seletor devolve o tipo do arquivo em
+  // alguns casos e nada em outros, então o nome também vale como pista.
+  function mimeDaImagem(a: AnexoPendente): string {
+    const tipo = (a.tipo_arquivo ?? '').toLowerCase();
+    if (/^image\/(jpeg|png|webp|heic|heif)$/.test(tipo)) return tipo;
+    const ext = (a.nome_arquivo.split('.').pop() ?? '').toLowerCase();
+    if (ext === 'png') return 'image/png';
+    if (ext === 'webp') return 'image/webp';
+    if (ext === 'heic' || ext === 'heif') return 'image/heic';
+    return 'image/jpeg';
+  }
+
+  // Foto do papel. Não há texto no arquivo, só pixels: a leitura acontece numa
+  // função do Supabase, porque a chave do serviço não pode viajar dentro do
+  // aplicativo (ver lib/imagemNota.ts). É a única das três origens que exige
+  // internet sempre.
+  async function preencherComImagem(anexo: AnexoPendente) {
+    setErro(null);
+    setAviso(null);
+    try {
+      const nota = await lerImagem(await lerBase64(anexo.uri), mimeDaImagem(anexo));
+      if (nota.itens.length === 0) {
+        setErro(
+          'Não consegui reconhecer produtos nesta imagem. Fotografe o papel mais reto, com a tabela inteira e boa luz.',
+        );
+        return;
+      }
+      if (nota.emitente && !descricao.trim()) setDescricao(nota.emitente);
+      if (nota.data && primeiraNota.current) setData(formatDataBR(nota.data));
+      acrescentarItens(
+        nota.itens.map((i) =>
+          novoItem({
+            descricao: i.descricao,
+            unidade: i.unidade,
+            quantidade: paraCampo(i.quantidade),
+            valor: paraCampo(i.valor),
+          }),
+        ),
+      );
+      primeiraNota.current = false;
+      setAviso(
+        nota.paraConferir > 0
+          ? `⚠️ ${nota.itens.length} produto(s) acrescentado(s), ${nota.paraConferir} com valor que não fechou. Confira antes de salvar.`
+          : `✅ ${nota.itens.length} produto(s) acrescentado(s) da imagem. Confira os valores e salve.`,
+      );
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Falha ao ler a imagem.');
+    }
+  }
+
+  // Fotografar o documento na hora: com a nota na mão, no galpão ou no
+  // talhão, é o caminho mais curto. A foto vira anexo da despesa como
+  // qualquer outro arquivo.
+  async function fotografar() {
+    setErro(null);
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        setErro('Permissão negada para acessar a câmera.');
+        return;
+      }
+      // Sem allowsEditing: cortar a imagem costuma decepar a última coluna da
+      // tabela, e aí some justamente o valor.
+      const r = await ImagePicker.launchCameraAsync({ quality: 0.8, mediaTypes: ['images'] });
+      if (r.canceled) return;
+      const f = r.assets[0];
+      const nome = f.fileName ?? `documento-${Date.now()}.jpg`;
+      const anexo: AnexoPendente = { uri: f.uri, nome_arquivo: nome, tipo_arquivo: f.mimeType ?? 'image/jpeg' };
+      setAnexosNovos((l) => [...l, anexo]);
+      setNotaParaLer(anexo);
+    } catch {
+      setErro('Não foi possível usar a câmera.');
+    }
   }
 
   async function anexar() {
@@ -408,14 +487,17 @@ function Formulario({
         {notaParaLer && (
           <View style={styles.perguntaNota}>
             <Text style={styles.perguntaTexto}>
-              <Text style={{ fontWeight: '700' }}>{notaParaLer.nome_arquivo}</Text> parece uma nota
-              fiscal. Quer preencher os produtos, as quantidades e os valores com os dados dela?
+              <Text style={{ fontWeight: '700' }}>{notaParaLer.nome_arquivo}</Text>{' '}
+              {tipoDeNota(notaParaLer) === 'imagem' ? 'parece um documento de compra' : 'parece uma nota fiscal'}.
+              Quer preencher os produtos, as quantidades e os valores com os dados dele?
             </Text>
             <Text style={styles.perguntaAviso}>
               Os produtos entram junto com os que já estão na tela, sem apagar nenhum.
               {tipoDeNota(notaParaLer) === 'pdf'
                 ? ' O PDF é lido da página impressa, então confira os valores; o XML da nota, quando existe, sai exato.'
-                : ''}
+                : tipoDeNota(notaParaLer) === 'imagem'
+                  ? ' A foto é lida de um papel, então confira os valores; o XML da nota, quando existe, sai exato. Precisa de internet.'
+                  : ''}
             </Text>
             <View style={styles.perguntaBotoes}>
               <Botao
@@ -439,6 +521,7 @@ function Formulario({
                   setLendoNota(true);
                   try {
                     if (tipo === 'pdf') await preencherComPdf(nota.uri);
+                    else if (tipo === 'imagem') await preencherComImagem(nota);
                     else await preencherComNota(nota.uri);
                   } finally {
                     setLendoNota(false);
@@ -469,7 +552,10 @@ function Formulario({
             </Pressable>
           </View>
         ))}
-        <Botao titulo="+ Anexar documento" contorno pequeno cor={cores.chuva} onPress={anexar} />
+        <View style={styles.anexoBotoes}>
+          <Botao titulo="+ Anexar documento" contorno pequeno cor={cores.chuva} onPress={anexar} style={{ flex: 1 }} />
+          <Botao titulo="📷 Fotografar" contorno pequeno cor={cores.chuva} onPress={fotografar} style={{ flex: 1 }} />
+        </View>
 
         <Botao titulo={existente ? '💾 Salvar alterações' : `✅ Salvar ${receita ? 'receita' : 'despesa'}`} cor={cor} onPress={salvar} carregando={salvando} style={{ marginTop: 20 }} />
         <Botao titulo="Cancelar" contorno cor={cores.textoSecundario} onPress={() => router.back()} style={{ marginTop: 10 }} />
@@ -519,6 +605,7 @@ const styles = StyleSheet.create({
   anexoNome: { flex: 1, color: cores.texto },
   // O nome ocupa a linha menos o ✕; sublinhado para se ver que é clicável.
   anexoAbrir: { flex: 1 },
+  anexoBotoes: { flexDirection: 'row', gap: 8 },
   anexoLink: { textDecorationLine: 'underline' },
   perguntaNota: {
     backgroundColor: cores.chuvaClara,

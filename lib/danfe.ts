@@ -1,4 +1,4 @@
-import type { NotaImportada } from '@/lib/nfe';
+import { montarNota, precisaConferir, type ItemLido, type NotaLida } from '@/lib/nota';
 
 // Leitura do PDF da DANFE.
 //
@@ -25,16 +25,7 @@ const NUMERO = /\d{1,3}(?:\.\d{3})*,\d{2,6}|\d+,\d{2,6}/g;
 // duas casas e o valor unitário, quatro.
 const GRUDADO = /^(\d{1,3}(?:\.\d{3})*,\d{2})(\d{1,3}(?:\.\d{3})*,\d{4})$/;
 
-export type ItemDanfe = NotaImportada['itens'][number] & {
-  // true quando quantidade × valor não fechou com o total impresso na linha.
-  conferir: boolean;
-};
 
-export type DanfeImportada = Omit<NotaImportada, 'itens'> & {
-  itens: ItemDanfe[];
-  // Quantos itens não fecharam a conta.
-  paraConferir: number;
-};
 
 function numero(texto: string): number {
   return Number(texto.replace(/\./g, '').replace(',', '.'));
@@ -77,13 +68,13 @@ function dataDe(linhas: string[]): string | null {
   return null;
 }
 
-export function lerDanfe(texto: string): DanfeImportada {
+export function lerDanfe(texto: string): NotaLida {
   const linhas = texto
     .split('\n')
     .map((l) => l.replace(/\s+/g, ' ').trim())
     .filter(Boolean);
 
-  const itens: ItemDanfe[] = [];
+  const itens: ItemLido[] = [];
 
   linhas.forEach((linha, i) => {
     const m = LINHA_PRODUTO.exec(linha);
@@ -96,11 +87,7 @@ export function lerDanfe(texto: string): DanfeImportada {
     const [quantidade, valor, total] = n;
     if (!(quantidade > 0) || !(valor > 0)) return;
 
-    // A conferência que dá confiança ao resultado: se o produto não bate com o
-    // total impresso, alguma coluna foi lida errado. Um centavo de diferença é
-    // arredondamento da própria nota.
-    const calculado = quantidade * valor;
-    const conferir = !(total > 0) || Math.abs(calculado - total) > Math.max(0.02, total * 0.001);
+    const conferir = precisaConferir(quantidade, valor, total);
 
     // Descrição em duas linhas: a de baixo entra junto quando é curta e não
     // tem cara de nova linha de produto nem de valor.
@@ -121,10 +108,5 @@ export function lerDanfe(texto: string): DanfeImportada {
     });
   });
 
-  return {
-    emitente: emitenteDe(linhas),
-    data: dataDe(linhas),
-    itens,
-    paraConferir: itens.filter((i) => i.conferir).length,
-  };
+  return montarNota(emitenteDe(linhas), dataDe(linhas), itens);
 }
