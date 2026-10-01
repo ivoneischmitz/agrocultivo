@@ -22,13 +22,38 @@ import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-na
 const FILTROS = ['Todos', 'Aguardando início', 'Em andamento', 'Finalizados'] as const;
 type Filtro = (typeof FILTROS)[number];
 
+// A tela abre em "Em andamento": no dia a dia o que interessa é a safra que
+// está no chão, e as finalizadas vão se acumulando ano a ano à frente dela.
+const FILTRO_INICIAL: Filtro = 'Em andamento';
+
+// Lista vazia: a mensagem muda com o filtro, senão "Nenhum resultado" faria
+// quem abre o app parecer que os cultivos sumiram.
+const VAZIO: Record<Filtro, { icone: string; titulo: string; subtitulo: string }> = {
+  Todos: { icone: '🔍', titulo: 'Nenhum resultado', subtitulo: 'Ajuste a busca ou o filtro.' },
+  'Aguardando início': {
+    icone: '🌱',
+    titulo: 'Nenhuma safra esperando para começar',
+    subtitulo: 'Todas as safras cadastradas já têm plantio ou despesa lançada.',
+  },
+  'Em andamento': {
+    icone: '🌾',
+    titulo: 'Nenhuma safra em andamento',
+    subtitulo: 'Toque em "Todos" para ver as finalizadas e as que ainda não começaram.',
+  },
+  Finalizados: {
+    icone: '🔍',
+    titulo: 'Nenhuma safra finalizada',
+    subtitulo: 'Ajuste a busca ou o filtro.',
+  },
+};
+
 export default function CultivosScreen() {
   const [cultivos, setCultivos] = useState<CultivoResumo[] | null>(null);
   const { fazendaId } = useFazenda();
   // Muda quando a sincronização traz algo: faz a tela reler sem trocar de aba.
   const versao = useVersaoDados();
   const [erro, setErro] = useState<string | null>(null);
-  const [filtro, setFiltro] = useState<Filtro>('Todos');
+  const [filtro, setFiltro] = useState<Filtro>(FILTRO_INICIAL);
   const [busca, setBusca] = useState('');
 
   function carregar() {
@@ -109,15 +134,7 @@ export default function CultivosScreen() {
           lista.length === 0 ? (
             <Vazio icone="🌾" titulo="Nenhum cultivo cadastrado" subtitulo='Toque em "+ Novo cultivo" para começar.' />
           ) : (
-            <Vazio
-              icone={filtro === 'Aguardando início' ? '🌱' : '🔍'}
-              titulo={filtro === 'Aguardando início' ? 'Nenhuma safra esperando para começar' : 'Nenhum resultado'}
-              subtitulo={
-                filtro === 'Aguardando início'
-                  ? 'Todas as safras cadastradas já têm plantio ou despesa lançada.'
-                  : 'Ajuste a busca ou o filtro.'
-              }
-            />
+            <Vazio {...VAZIO[filtro]} />
           )
         }
         renderItem={({ item }) => <CartaoCultivo c={item} onExcluir={() => excluir(item)} />}
