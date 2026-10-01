@@ -82,16 +82,27 @@ A foto não tem texto nenhum, só pixels: a leitura é feita pelo Gemini, do Goo
 2. Guarde a chave no projeto e publique a função:
 
 ```bash
-supabase link --project-ref efpghgwlvmrnnsmwhohy
-supabase secrets set GEMINI_API_KEY=<a chave>
-supabase functions deploy ler-documento
+supabase secrets set GEMINI_API_KEY=<a chave> --project-ref efpghgwlvmrnnsmwhohy
+supabase functions deploy ler-documento --project-ref efpghgwlvmrnnsmwhohy
 ```
 
-Publique **sem** `--no-verify-jwt`: é a conferência do token que impede alguem de fora usar a sua cota. Para trocar de modelo depois, `supabase secrets set GEMINI_MODEL=...` (o padrão é `gemini-2.5-flash`).
+O `--project-ref` evita o `supabase link`, que além de interativo pede a senha do banco à toa. Publique **sem** `--no-verify-jwt`: é a conferência do token que impede alguém de fora usar a sua cota.
+
+**Quando o Google aposentar o modelo** — e ele aposenta — a leitura passa a responder "recusou o pedido (404)" com o nome do substituto. A troca é um comando, sem mexer no código:
+
+```bash
+supabase secrets set GEMINI_MODEL=<o novo> --project-ref efpghgwlvmrnnsmwhohy
+```
+
+Para ver quais modelos a chave alcança, chame a função com `?modelos=1` (precisa estar logado, como todo o resto).
+
+O padrão é `gemini-3.8-flash` com a deliberação desligada (`thinkingBudget: 0`). Não é economia à toa: deliberando, a leitura passava de oitenta segundos e chegou a estourar o limite de tempo do servidor; sem, leva uns dezessete. Ler tabela é transcrever o que se vê — quem garante a qualidade aqui é a conferência de quantidade × valor.
 
 Sem isso configurado, o app continua inteiro; só a leitura de foto responde que ainda não foi configurada.
 
 **Privacidade:** na camada gratuita do Gemini, o Google pode usar o que for enviado para melhorar os modelos deles — aqui, as fotos das suas notas e contratos. Num projeto pago, não. Vale saber antes de fotografar documento com dado sensível.
+
+**Cota:** a camada gratuita tem teto por minuto e por dia, e ele é baixo — uma sessão de testes o esgota. Estourado, a leitura responde "o limite de leituras foi atingido"; o resto do app continua inteiro. O teto por minuto volta em um minuto; o diário, no dia seguinte.
 
 ### Conferência
 

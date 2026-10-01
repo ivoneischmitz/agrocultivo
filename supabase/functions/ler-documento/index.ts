@@ -13,8 +13,10 @@
 //   supabase functions deploy ler-documento
 
 const CHAVE = Deno.env.get('GEMINI_API_KEY');
-// Dá para trocar sem mexer no código quando sair um modelo melhor.
-const MODELO = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
+// Dá para trocar sem mexer no código quando sair um modelo melhor — e é bom
+// que dê: o Google aposenta modelo. Quando acontecer, a função devolve 404
+// dizendo qual é o substituto, e basta um `supabase secrets set GEMINI_MODEL`.
+const MODELO = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.8-flash';
 
 const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 // Uma foto de celular passa longe disso; o limite existe para um arquivo
@@ -83,6 +85,23 @@ function resposta(corpo: unknown, status = 200): Response {
   });
 }
 
+// O modelo fica sobrecarregado de vez em quando e responde 503. É passageiro,
+// e quem está com a nota na mão não tem por que saber disso: tenta de novo
+// aqui mesmo, esperando um pouco mais a cada vez.
+async function pedirComPaciencia(url: string, corpo: string): Promise<Response> {
+  const esperas = [1000, 3000];
+  for (let i = 0; ; i++) {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': CHAVE! },
+      body: corpo,
+    });
+    if (r.status !== 503 || i >= esperas.length) return r;
+    console.log(`gemini 503, tentando de novo em ${esperas[i]}ms`);
+    await new Promise((f) => setTimeout(f, esperas[i]));
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return resposta({ erro: 'Método não suportado.' }, 405);
@@ -91,6 +110,23 @@ Deno.serve(async (req) => {
       { erro: 'A leitura de imagem ainda não foi configurada no servidor (falta GEMINI_API_KEY).' },
       503,
     );
+  }
+
+  // Diagnóstico: quais modelos esta chave pode usar. O Google aposenta modelo
+  // sem avisar, e sem isto descobrir o substituto exige abrir o painel dele.
+  if (new URL(req.url).searchParams.has('modelos')) {
+    const m = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+      headers: { 'x-goog-api-key': CHAVE },
+    });
+    const j = await m.json();
+    return resposta({
+      modelos: (j?.models ?? [])
+        .filter((x: { supportedGenerationMethods?: string[] }) =>
+          x.supportedGenerationMethods?.includes('generateContent'),
+        )
+        .map((x: { name?: string }) => x.name),
+      erroDoGoogle: j?.error?.message,
+    });
   }
 
   let imagem: string;
@@ -115,10 +151,7 @@ Deno.serve(async (req) => {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent`;
   let r: Response;
   try {
-    r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': CHAVE },
-      body: JSON.stringify({
+    r = await pedirComPaciencia(url, JSON.stringify({
         contents: [
           {
             role: 'user',
@@ -133,22 +166,46 @@ Deno.serve(async (req) => {
           temperature: 0,
           responseMimeType: 'application/json',
           responseSchema: ESQUEMA,
+          // Sem deliberação antes de responder. Ler uma tabela é transcrever o
+          // que se vê, e pensar sobre isso só gastava tempo: com deliberação a
+          // chamada passava de oitenta segundos e chegou a estourar o limite
+          // do servidor. Quem garante a qualidade aqui é a conferência de
+          // quantidade × valor, não o esforço do modelo.
+          thinkingConfig: { thinkingBudget: 0 },
         },
-      }),
-    });
+    }));
   } catch {
     return resposta({ erro: 'Não foi possível falar com o serviço de leitura.' }, 502);
   }
 
   if (!r.ok) {
-    // O texto do Google costuma dizer o que houve (cota, chave inválida); vai
-    // para o log da função, não para a tela de quem está lançando a despesa.
-    console.error('gemini', r.status, await r.text());
-    const erro =
-      r.status === 429
-        ? 'O limite de leituras do serviço foi atingido. Tente de novo mais tarde.'
-        : 'O serviço de leitura recusou o pedido.';
-    return resposta({ erro }, 502);
+    const bruto = await r.text();
+    console.error('gemini', r.status, bruto);
+    if (r.status === 429) {
+      return resposta({ erro: 'O limite de leituras do serviço foi atingido. Tente de novo mais tarde.' }, 502);
+    }
+    // Chegou aqui depois das tentativas de pedirComPaciencia: a sobrecarga não
+    // passou em quinze segundos.
+    if (r.status === 503) {
+      return resposta(
+        { erro: 'O serviço de leitura está sobrecarregado agora. Tente de novo em um minuto.' },
+        502,
+      );
+    }
+    // O motivo do Google vai junto. Ele diz o que houve — chave inválida,
+    // modelo inexistente, API não habilitada — e sem ele o único caminho para
+    // descobrir é abrir o painel. Nada aí é segredo: a chave viaja em
+    // cabeçalho, nunca no endereço.
+    let motivo = '';
+    try {
+      motivo = String(JSON.parse(bruto)?.error?.message ?? '').slice(0, 300);
+    } catch {
+      motivo = bruto.slice(0, 200);
+    }
+    return resposta(
+      { erro: `O serviço de leitura recusou o pedido (${r.status})${motivo ? ': ' + motivo : ''}` },
+      502,
+    );
   }
 
   const json = await r.json();
