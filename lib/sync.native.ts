@@ -12,6 +12,7 @@ import {
 } from '@/lib/dbLocal.native';
 import { apagarArquivo } from '@/lib/arquivosLocais.native';
 import { lerBytes } from '@/lib/arquivos';
+import { lerPaginado, type Pagina } from '@/lib/paginar';
 import { supabase } from '@/lib/supabase';
 
 // Sincronização entre a cópia local (lib/dbLocal.native.ts) e o Supabase.
@@ -228,25 +229,20 @@ function paraLocal(tabela: string, linha: Record<string, unknown>): LinhaSync {
   return saida as LinhaSync;
 }
 
-// O Supabase devolve no máximo 1.000 linhas por consulta e não avisa quando
-// corta. Sem paginar, uma despesa de nota grande sumiria pela metade em
-// silêncio — o pior tipo de defeito, porque não dá erro nenhum.
-const PAGINA = 1000;
-
+// Os itens de uma lista de movimentações, paginados (ver lib/paginar.ts).
 async function itensDoServidor(movIds: string[]): Promise<Record<string, unknown>[]> {
   const todos: Record<string, unknown>[] = [];
-  for (let de = 0; ; de += PAGINA) {
-    const { data, error } = await supabase
-      .from('movimentacao_itens')
-      .select('*')
-      .in('movimentacao_id', movIds)
-      .order('id')
-      .range(de, de + PAGINA - 1);
-    if (error) throw error;
-    const linhas = (data ?? []) as unknown as Record<string, unknown>[];
-    todos.push(...linhas);
-    if (linhas.length < PAGINA) return todos;
-  }
+  await lerPaginado(
+    (de, ate) =>
+      supabase
+        .from('movimentacao_itens')
+        .select('*', { count: 'exact' })
+        .in('movimentacao_id', movIds)
+        .order('id')
+        .range(de, ate) as unknown as PromiseLike<Pagina>,
+    (linhas) => todos.push(...linhas),
+  );
+  return todos;
 }
 
 // Os itens não são baixados por updated_at como as outras tabelas.
@@ -298,21 +294,26 @@ async function baixar(fazendaId: string): Promise<void> {
     // aparelho: é melhor rebaixar uma linha do que perdê-la.
     const inicio = new Date(Date.now() - 60_000).toISOString();
 
-    let q = supabase.from(t.nome).select(t.colunas);
-    q = t.nome === 'fazendas' ? q.eq('id', fazendaId) : q.eq('fazenda_id', fazendaId);
-    if (desde) q = q.gt('updated_at', desde);
-
-    const { data, error } = await q;
-    if (error) throw error;
-
-    for (const linha of (data ?? []) as unknown as Record<string, unknown>[]) {
-      guardarDoServidor(t.nome, paraLocal(t.nome, linha), t.pendente);
-      if (t.nome === 'movimentacoes') movimentacoesBaixadas.push(linha.id as string);
-    }
+    // Em páginas: uma consulta só traria no máximo mil linhas e calaria sobre o
+    // resto. A ordem é pelo id, que não muda (ver lib/paginar.ts).
+    const baixadas = await lerPaginado(
+      (de, ate) => {
+        let q = supabase.from(t.nome).select(t.colunas, { count: 'exact' });
+        q = t.nome === 'fazendas' ? q.eq('id', fazendaId) : q.eq('fazenda_id', fazendaId);
+        if (desde) q = q.gt('updated_at', desde);
+        return q.order('id').range(de, ate) as unknown as PromiseLike<Pagina>;
+      },
+      (linhas) => {
+        for (const linha of linhas) {
+          guardarDoServidor(t.nome, paraLocal(t.nome, linha), t.pendente);
+          if (t.nome === 'movimentacoes') movimentacoesBaixadas.push(linha.id as string);
+        }
+      },
+    );
     // Aparece no log do aparelho (adb logcat). Sem isso, uma sincronização que
     // não traz nada é indistinguível de uma que não rodou.
-    console.log(`sync baixou ${(data ?? []).length} de ${t.nome} (desde ${desde ?? 'sempre'})`);
-    trouxe += (data ?? []).length;
+    console.log(`sync baixou ${baixadas} de ${t.nome} (desde ${desde ?? 'sempre'})`);
+    trouxe += baixadas;
     anotarBusca(t.nome, inicio);
   }
 

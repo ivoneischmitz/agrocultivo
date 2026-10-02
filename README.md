@@ -166,6 +166,8 @@ O plano é a web continuar só online e o aplicativo do celular guardar os dados
 
 A camada local no celular está feita: `lib/dbLocal.native.ts` guarda a cópia, `lib/sync.native.ts` sobe o pendente e baixa o que mudou, e cada arquivo `*.native.ts` em `lib/` é a versão do celular da mesma interface que a web usa.
 
+A descida é paginada (`lib/paginar.ts`): o Supabase devolve no máximo 1.000 linhas por consulta e não avisa quando corta, então sem páginas a pluviometria deixaria de baixar o que passasse disso. A ordem é pelo `id` e o fim vem do total informado pelo servidor.
+
 Fotos e anexos também esperam no aparelho: o arquivo é copiado para uma pasta nossa (`lib/arquivosLocais.native.ts`), a linha nasce com `pendente = 1`, e a tela mostra ⏳ até subir.
 
 Clima, chuva por satélite, municípios e mapa dependem de rede em qualquer cenário.
