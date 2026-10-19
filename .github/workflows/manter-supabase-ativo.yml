@@ -1,0 +1,75 @@
+name: Manter o Supabase acordado
+
+# O plano gratuito do Supabase pausa o projeto depois de uma semana com pouca
+# atividade no banco, e com o projeto pausado o app inteiro para de abrir. Entre
+# uma safra e outra o app fica dias sem uso, que é quando isso acontece.
+#
+# Este fluxo faz uma consulta ao banco todo dia. É uma leitura de uma linha, e
+# não custa nada: o repositório é público, e minutos de Actions são grátis.
+#
+# Se o projeto já estiver pausado, a consulta falha, o fluxo fica vermelho e o
+# GitHub manda e-mail. Então ele serve também de alarme.
+
+on:
+  schedule:
+    # Todo dia às 09:17 UTC (06:17 em Brasília). Minuto quebrado de propósito:
+    # na hora cheia o GitHub atrasa ou pula execuções por excesso de pedidos.
+    - cron: '17 9 * * *'
+  # Botão "Run workflow" na aba Actions, para testar quando quiser.
+  workflow_dispatch:
+  # Mexeu neste arquivo, roda na hora: assim um erro de digitação aparece já.
+  push:
+    paths:
+      - '.github/workflows/manter-supabase-ativo.yml'
+
+# Só para o último passo, que renova o próprio agendamento.
+permissions:
+  actions: write
+
+jobs:
+  consulta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consulta ao banco
+        env:
+          SUPABASE_URL: https://efpghgwlvmrnnsmwhohy.supabase.co
+          # Chave PUBLICÁVEL: é a mesma que vai dentro do app e do site, feita
+          # para ser pública. Dá acesso só ao que a RLS permite a quem não está
+          # logado, isto é, a nada. Nunca coloque aqui a chave secreta.
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_oSZybShm9OWXntUywWKQow_kYV3YrbY
+        run: |
+          # A consulta passa pelo PostgREST e vira um SELECT de verdade no
+          # Postgres. A RLS devolve lista vazia a quem não está logado; o que
+          # importa é o banco ter trabalhado.
+          for tentativa in 1 2 3; do
+            resposta=$(curl -sS --max-time 30 -w '\n%{http_code}' \
+              "$SUPABASE_URL/rest/v1/fazendas?select=id&limit=1" \
+              -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" || true)
+            codigo=$(printf '%s' "$resposta" | tail -n1)
+            corpo=$(printf '%s' "$resposta" | sed '$d')
+            echo "tentativa $tentativa: HTTP ${codigo:-sem resposta}"
+            if [ "$codigo" = "200" ] && [ "${corpo#\[}" != "$corpo" ]; then
+              echo "Banco respondeu. Atividade registrada."
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::O banco não respondeu. O projeto pode estar PAUSADO: abra https://supabase.com/dashboard/project/efpghgwlvmrnnsmwhohy e clique em Restore."
+          exit 1
+
+      # O GitHub desliga agendamentos de repositório público depois de 60 dias
+      # sem atividade, e isso aconteceria na entressafra, justamente quando a
+      # pausa é mais provável. Reativar o próprio fluxo todo dia é a salvaguarda.
+      # É melhor esforço: se falhar, não derruba a consulta, que é o que importa.
+      - name: Renovar o agendamento
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -sS -X PUT -o /dev/null -w "renovar agendamento: HTTP %{http_code}\n" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/manter-supabase-ativo.yml/enable"
