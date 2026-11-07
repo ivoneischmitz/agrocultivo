@@ -1,5 +1,5 @@
 import { cores } from '@/lib/tema';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -125,12 +125,25 @@ export function BotaoConfirmar({
 export function Campo({
   label,
   erro,
+  acao,
   style,
   ...props
-}: TextInputProps & { label: string; erro?: string | null }) {
+}: TextInputProps & {
+  label: string;
+  erro?: string | null;
+  // Algo à direita do rótulo, na mesma linha (o "Mostrar" do CampoSenha).
+  acao?: ReactNode;
+}) {
   return (
     <View style={styles.campo}>
-      <Text style={styles.label}>{label}</Text>
+      {acao ? (
+        <View style={styles.rotuloLinha}>
+          <Text style={[styles.label, { marginBottom: 0 }]}>{label}</Text>
+          {acao}
+        </View>
+      ) : (
+        <Text style={styles.label}>{label}</Text>
+      )}
       <TextInput
         placeholderTextColor="#9aa89a"
         {...props}
@@ -138,6 +151,33 @@ export function Campo({
       />
       {!!erro && <Text style={styles.erro}>{erro}</Text>}
     </View>
+  );
+}
+
+// Campo de senha com "Mostrar/Ocultar". Digitar uma senha sem ver o que saiu é
+// a causa mais comum de "senha inválida", e no celular o teclado erra a
+// maiúscula sem avisar. O botão fica na linha do rótulo, e não dentro do campo,
+// para não depender de posicionamento absoluto, que se comporta diferente na
+// web e no Android.
+export function CampoSenha(props: Omit<ComponentProps<typeof Campo>, 'secureTextEntry' | 'acao'>) {
+  const [visivel, setVisivel] = useState(false);
+  return (
+    <Campo
+      autoCapitalize="none"
+      autoCorrect={false}
+      {...props}
+      secureTextEntry={!visivel}
+      acao={
+        <Pressable
+          onPress={() => setVisivel((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={visivel ? 'Ocultar senha' : 'Mostrar senha'}
+          hitSlop={10}
+        >
+          <Text style={styles.verSenha}>{visivel ? '🙈 Ocultar' : '👁 Mostrar'}</Text>
+        </Pressable>
+      }
+    />
   );
 }
 
@@ -246,6 +286,8 @@ export const styles = StyleSheet.create({
   botaoTextoPequeno: { fontSize: 13, fontWeight: '600' },
   campo: { marginBottom: 14 },
   label: { fontSize: 14, fontWeight: '600', color: cores.texto, marginBottom: 6 },
+  rotuloLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  verSenha: { fontSize: 13, fontWeight: '600', color: cores.primaria },
   input: {
     borderWidth: 1,
     borderColor: '#d0d8cd',

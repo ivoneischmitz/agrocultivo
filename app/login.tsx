@@ -1,4 +1,4 @@
-import { Botao, Campo, Mensagem } from '@/components/ui';
+import { Botao, Campo, CampoSenha, Mensagem } from '@/components/ui';
 import { traduzirErro, useAuth } from '@/contexts/AuthContext';
 import { cores } from '@/lib/tema';
 import { Redirect } from 'expo-router';
@@ -101,10 +101,9 @@ export default function LoginScreen() {
             onChangeText={setEmail}
           />
           {modo !== 'recuperar' && (
-            <Campo
+            <CampoSenha
               label="Senha"
               placeholder="Mínimo 6 caracteres"
-              secureTextEntry
               value={senha}
               onChangeText={setSenha}
               onSubmitEditing={enviar}

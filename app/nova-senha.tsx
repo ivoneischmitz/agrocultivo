@@ -1,4 +1,4 @@
-import { Botao, Campo, Mensagem } from '@/components/ui';
+import { Botao, CampoSenha, Mensagem } from '@/components/ui';
 import { traduzirErro, useAuth } from '@/contexts/AuthContext';
 import { cores } from '@/lib/tema';
 import { Redirect, router } from 'expo-router';
@@ -48,10 +48,9 @@ export default function NovaSenhaScreen() {
         <Text style={styles.titulo}>Criar nova senha</Text>
         <Text style={styles.sub}>{session.user.email}</Text>
         <Mensagem texto={erro} />
-        <Campo label="Nova senha" secureTextEntry value={senha} onChangeText={setSenha} />
-        <Campo
+        <CampoSenha label="Nova senha" value={senha} onChangeText={setSenha} />
+        <CampoSenha
           label="Repita a senha"
-          secureTextEntry
           value={confirmacao}
           onChangeText={setConfirmacao}
           onSubmitEditing={salvar}
