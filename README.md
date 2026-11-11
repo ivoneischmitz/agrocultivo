@@ -172,6 +172,63 @@ Fotos e anexos também esperam no aparelho: o arquivo é copiado para uma pasta 
 
 Clima, chuva por satélite, municípios e mapa dependem de rede em qualquer cenário.
 
+## Backup do banco
+
+O plano gratuito do Supabase **não faz backup**: se o projeto for apagado ou der problema, os dados somem. No Git só está o esquema (os SQL), não os dados.
+
+**O que é guardado** (`scripts/backup/exportar.mjs`): todas as tabelas, a lista de usuários (e-mail e metadados, **sem a senha**) e os arquivos do Storage (anexos e fotos), até 250 MB.
+
+**Quando e onde:** todo domingo às 05:43 (Brasília), o fluxo *Backup do banco* (`.github/workflows/backup-banco.yml`) guarda um arquivo por 90 dias, em **Actions → a execução → Artifacts**. Também roda na hora pelo botão *Run workflow*.
+
+**Cifrado, porque o repositório é público.** Quem estiver logado no GitHub consegue baixar o que o fluxo guarda. Por isso o arquivo sai cifrado com a chave pública (`scripts/backup/chave-publica.pub`, que está no Git) e só abre com a **chave privada**, que fica fora do repositório (`C:\Users\<você>\agrocultivo-backup\chave-privada.pem`).
+
+**Sem a chave privada nenhum backup abre**, por ninguém, nunca. E quem a tiver abre todos. Guarde uma cópia num gerenciador de senhas e outra num pendrive, longe do computador.
+
+### Configurando (uma vez)
+
+1. **Chaves**: `node scripts/backup/gerar-chaves.mjs` gera o par. Ele recusa sobrescrever uma chave que já exista. A pública vai para o Git; a privada, não.
+2. **Chave secreta no Supabase**: *Project Settings → API Keys → Secret keys → New secret key*, com o nome `backup-github`. Uma chave só para isto pode ser revogada sem mexer no resto. Ela ignora a RLS, então enxerga tudo; trate como senha.
+3. **Segredo no GitHub**: *Settings → Secrets and variables → Actions → New repository secret*, nome `SUPABASE_SECRET_KEY`, valor a chave do passo 2.
+4. **Teste**: *Actions → Backup do banco → Run workflow*. Deve ficar verde, com um resumo das contagens e um arquivo em *Artifacts*.
+
+### Conferindo um backup
+
+Baixe o arquivo do *Artifacts* (vem num `.zip`), extraia o `.bin` e rode:
+
+```bash
+node scripts/backup/abrir.mjs agrocultivo-backup-AAAA-MM-DD-HHMM.bin --chave C:\Users\voce\agrocultivo-backup\chave-privada.pem
+```
+
+Mostra as contagens de cada tabela, **sem gravar nada em disco**. Compare com o que o app mostra. Com `--saida pasta` grava `dados.json` e os arquivos em texto aberto; apague quando terminar.
+
+### Restaurando
+
+Num projeto Supabase **novo e vazio**:
+
+1. No SQL Editor do projeto novo, rode `supabase/schema.sql`, `supabase/fazendas.sql` e `supabase/excluir-conta.sql`, nesta ordem. Eles criam tabelas, RLS, funções e buckets.
+2. Simule: `node scripts/backup/restaurar.mjs <backup.bin> --chave <chave-privada.pem>`. Não grava nada; abre o backup e mostra o que seria restaurado.
+3. Grave:
+
+```powershell
+$env:DESTINO_URL="https://<projeto novo>.supabase.co"
+$env:DESTINO_SECRET_KEY="chave secreta do projeto novo"
+node scripts/backup/restaurar.mjs <backup.bin> --chave <chave-privada.pem> --gravar
+```
+
+O script recusa um destino que já tenha dados e recusa o projeto de onde o backup saiu (`--mesmo-projeto` libera). Confere todas as tabelas **antes** de gravar qualquer coisa, recria os usuários com o mesmo id, grava as tabelas, sobe os arquivos e termina comparando as contagens com as do backup.
+
+Depois, no app, troque `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_ANON_KEY` (Vercel e EAS) pelos do projeto novo.
+
+### Limites e cuidados
+
+- **As senhas não vêm.** O Supabase não entrega o hash pela API. Cada pessoa entra por "Esqueci minha senha", como na migração do app antigo.
+- **A restauração ainda não foi ensaiada num projeto Supabase real.** Foi testada contra um servidor simulado (`npm run testar:backup`, 24 casos: paginação, criptografia, adulteração, ordem das tabelas, destino sem schema, destino com dados). Antes de depender dela, restaure uma vez num projeto de teste.
+- **Tabela nova entra na lista.** Ao criar uma tabela, acrescente-a em `TABELAS` (e as chaves estrangeiras em `REFERENCIAS`) em `scripts/backup/lib.mjs`. Se esquecer, o backup avisa ("há uma tabela nova que o backup não conhecia") e tenta guardá-la pela coluna `id`, mas confira.
+- **Arquivos acima de 250 MB** ficam fora do backup (as tabelas seguem inteiras) e o fluxo avisa. É o momento de repensar onde as fotos moram: o plano gratuito tem 1 GB.
+- **Retenção de 90 dias**, o máximo do GitHub para repositório público: umas 13 cópias semanais. Para guardar mais tempo, baixe uma de vez em quando.
+- **O GitHub desliga agendamento de repositório público depois de 60 dias sem atividade.** O fluxo diário *Manter o Supabase acordado* reativa o do backup todos os dias. Se um domingo passar sem backup, confira se o fluxo está ativo na aba Actions.
+- **Falhou?** O GitHub manda e-mail. A mensagem do erro aparece nas anotações da execução e nunca traz conteúdo do banco, porque os registros são públicos.
+
 ## Publicando na web (Vercel)
 
 O `vercel.json` já traz o build (`npm run build:web`), a pasta `dist` e o rewrite para a página única. Em **Project Settings → Environment Variables** da Vercel, cadastre `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` e `EXPO_PUBLIC_SITE_URL`. Sem elas o build passa, mas o site abre em branco.

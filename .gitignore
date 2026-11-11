@@ -50,3 +50,7 @@ yarn-error.*
 # dados do app antigo extraidos do celular/emulador
 migracao-local/
 
+# backup do banco: o que sai de exportar.mjs / abrir.mjs e a chave privada
+/backup-saida/
+/backup-aberto/
+chave-privada*

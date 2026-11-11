@@ -1,0 +1,76 @@
+name: Backup do banco
+
+# O plano gratuito do Supabase não faz backup. Este fluxo exporta o banco toda
+# semana (tabelas, lista de usuários e os arquivos do Storage) e guarda uma cópia
+# FORA do Supabase, no próprio GitHub, por 90 dias.
+#
+# O repositório é público, e quem estiver logado no GitHub consegue baixar o que
+# o fluxo guarda. Por isso o arquivo sai CIFRADO com a chave pública que está em
+# scripts/backup/chave-publica.pub, e só a chave privada, que fica com o dono,
+# abre. O fluxo nunca imprime conteúdo do banco, só contagens.
+#
+# Precisa do segredo SUPABASE_SECRET_KEY (Settings > Secrets and variables >
+# Actions), uma chave secreta do Supabase criada só para isto. Sem ele o fluxo
+# falha dizendo o que falta, e o GitHub manda e-mail.
+#
+# Como conferir e restaurar: README, seção "Backup do banco".
+
+on:
+  schedule:
+    # Domingo às 08:43 UTC (05:43 em Brasília). Minuto quebrado de propósito:
+    # na hora cheia o GitHub atrasa ou pula execuções por excesso de pedidos.
+    - cron: '43 8 * * 0'
+  # Botão "Run workflow" na aba Actions, para fazer um backup agora.
+  workflow_dispatch:
+
+# contents: ler o código. actions: write só para o último passo, que renova o
+# próprio agendamento.
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Exportar e cifrar
+        env:
+          SUPABASE_URL: https://efpghgwlvmrnnsmwhohy.supabase.co
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo "::error::O segredo SUPABASE_SECRET_KEY não está configurado. Crie uma chave secreta no Supabase (Project Settings > API Keys) e cadastre em Settings > Secrets and variables > Actions do repositório."
+            exit 1
+          fi
+          node scripts/backup/exportar.mjs
+
+      # Só o arquivo cifrado sobe. if-no-files-found: error faz o fluxo ficar
+      # vermelho se, por qualquer motivo, não saiu arquivo nenhum.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-banco
+          path: backup-saida/*.bin
+          retention-days: 90
+          if-no-files-found: error
+
+      # O GitHub desliga agendamento de repositório público depois de 60 dias sem
+      # atividade. O fluxo "Manter o Supabase acordado", que roda todo dia, também
+      # reativa este; aqui é a segunda salvaguarda. Melhor esforço: não derruba o
+      # backup.
+      - name: Renovar o agendamento
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -sS -X PUT -o /dev/null -w "renovar agendamento: HTTP %{http_code}\n" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/backup-banco.yml/enable"

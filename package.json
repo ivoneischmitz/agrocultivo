@@ -43,7 +43,8 @@
     "web": "expo start --web",
     "build:web": "expo export -p web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "testar:backup": "node scripts/backup/testar.mjs"
   },
   "private": true
 }

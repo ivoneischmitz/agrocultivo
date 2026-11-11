@@ -69,7 +69,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          curl -sS -X PUT -o /dev/null -w "renovar agendamento: HTTP %{http_code}\n" \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/manter-supabase-ativo.yml/enable"
+          # Reativa este fluxo e o do backup semanal: se o GitHub desligar o
+          # agendamento do backup por inatividade, este, que roda todo dia, o
+          # religa em até 24 horas. Se o arquivo do backup ainda não existir, a
+          # resposta é 404 e não faz mal.
+          for fluxo in manter-supabase-ativo.yml backup-banco.yml; do
+            curl -sS -X PUT -o /dev/null -w "renovar $fluxo: HTTP %{http_code}\n" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/$fluxo/enable"
+          done

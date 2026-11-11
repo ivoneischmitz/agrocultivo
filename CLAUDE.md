@@ -40,6 +40,7 @@ No test runner. Port 8081 is often taken by another Expo project on this machine
 - View `cultivos_resumo` (`security_invoker`) returns each cultivo with `total_despesas/total_receitas/total_chuva` — use it for lists instead of per-card queries.
 - RPC `salvar_movimentacao(...)` writes header + replaces all itens in one transaction (security invoker). Anexos are uploaded *after* it returns, so an upload failure never loses the lançamento.
 - Schema changes: edit `schema.sql` idempotently (if not exists / or replace) — it's meant to be re-runnable.
+- **New table → also add it to `TABELAS` in `scripts/backup/lib.mjs`** (primary key columns) and any foreign keys to `REFERENCIAS`. The weekly backup (`.github/workflows/backup-banco.yml`, encrypted, see README "Backup do banco") warns about a table it doesn't know, but the list is the source of truth. `npm run testar:backup` runs the backup/restore suite against a simulated Supabase.
 
 **`cultivos/[id]/calculadora` has no entry point on purpose** — its button was removed from the cultivo card, and the owner wants the screen kept for later work. Don't delete it as dead code. It answers "how much seed to buy for this area"; the newer `/regulagem` screen (reachable from Início) answers "how to set up the machine", so they are not duplicates.
 
