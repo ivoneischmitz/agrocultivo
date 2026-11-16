@@ -244,6 +244,26 @@ eas build --profile production --platform android
 
 As variáveis `EXPO_PUBLIC_*` precisam existir no ambiente do EAS (`eas env:create`) ou num `.env` presente no momento do build.
 
+### Botão "Baixar o aplicativo" no site
+
+O site mostra um botão para baixar o APK na tela de login e no Perfil. Ele **pergunta ao GitHub qual é o último Release publicado** (`lib/apk.ts`) e só aparece se houver um: não existe link quebrado antes do primeiro, e uma versão nova aparece sozinha, sem publicar o site de novo. No iPhone e dentro do aplicativo instalado ele não aparece.
+
+O APK mora nos Releases do GitHub, e não no EAS nem no repositório. O link de download do EAS é temporário e os builds de lá expiram; um APK de 100 MB no Git pesaria para sempre a cada versão.
+
+Para cada versão nova:
+
+1. Gere o APK (`eas build --profile preview --platform android`) e baixe o arquivo pelo link do build.
+2. No GitHub: *Releases → Draft a new release*. Crie uma tag nova (`v2.0.1`, por exemplo), anexe o `.apk` (o nome do arquivo não importa, o site pega o `.apk`) e clique em **Publish release**. Rascunho e pré-lançamento não contam.
+3. Pronto. O site passa a mostrar a versão, a data e o tamanho desse Release.
+
+Com o `gh` instalado dá para fazer pela linha de comando: `gh release create v2.0.1 agrocultivo.apk --title "Agro Cultivo 2.0.1"`.
+
+Cuidados:
+
+- O repositório é público, então **o APK baixa para qualquer pessoa**. O que vai dentro são só as chaves públicas, as mesmas do site.
+- Instalar um APK fora da Play Store exige que a pessoa permita "instalar de fontes desconhecidas". O botão avisa isso.
+- Se o app um dia for para a Play Store, a Play assina o aplicativo com a chave dela. Quem instalou por este botão talvez precise desinstalar antes de atualizar pela loja. Confira isso na hora de publicar, ao decidir se a Play usará a mesma chave de assinatura do EAS.
+
 ## O que mudou em relação ao 1.x
 
 | 1.x | 2.0 |

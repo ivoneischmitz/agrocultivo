@@ -1,3 +1,4 @@
+import { BaixarApk } from '@/components/BaixarApk';
 import { ComboBox } from '@/components/ComboBox';
 import { ExcluirConta } from '@/components/ExcluirConta';
 import { SelectField } from '@/components/SelectField';
@@ -56,6 +57,7 @@ export default function PerfilScreen() {
         </>
       )}
       <CopiaLocal />
+      <BaixarApk variante="cartao" />
       <IndicarApp />
       <Sobre />
       <ExcluirConta />

@@ -1,3 +1,4 @@
+import { BaixarApk } from '@/components/BaixarApk';
 import { Botao, Campo, CampoSenha, Mensagem } from '@/components/ui';
 import { traduzirErro, useAuth } from '@/contexts/AuthContext';
 import { cores } from '@/lib/tema';
@@ -129,6 +130,8 @@ export default function LoginScreen() {
               </Pressable>
             )}
           </View>
+
+          <BaixarApk variante="login" />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
